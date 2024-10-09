@@ -6,7 +6,9 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
-from langchain.chains.question_answering import load_qa_chain
+from langchain.chains import RetrievalQA
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import LLMChainExtractor
 
 def get_pdf_text(pdf_docs):
     text = ""
@@ -18,10 +20,10 @@ def get_pdf_text(pdf_docs):
 
 def get_text_chunks(text):
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,  # Smaller chunks for more precise matching
+        chunk_size=500,
         chunk_overlap=50,
         length_function=len,
-        separators=["\n\n", "\n", " ", ""]
+        separators=["\n\n", "\n", ". ", " ", ""]
     )
     chunks = text_splitter.split_text(text)
     return chunks
@@ -31,7 +33,7 @@ def get_vector_store(text_chunks):
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
     vector_store.save_local("faiss_index")
 
-def get_conversational_chain():
+def create_qa_chain():
     prompt_template = """
     Use the following pieces of context to answer the question. If you cannot find the answer in the context, respond with "The answer is not available in the context." Do not make up or infer any information that is not explicitly stated in the context.
 
@@ -48,41 +50,65 @@ def get_conversational_chain():
     Answer:
     """
 
-    model = Ollama(model="llama2", temperature=0.1)  # Lower temperature for more focused answers
-    prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-    chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
-    return chain
+    PROMPT = PromptTemplate(
+        template=prompt_template,
+        input_variables=["context", "question"]
+    )
+
+    llm = Ollama(model="llama2", temperature=0.1)
+
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    vectorstore = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
+    
+    # Create a retriever with similarity search
+    retriever = vectorstore.as_retriever(
+        search_type="similarity",
+        search_kwargs={
+            "k": 4,
+            "fetch_k": 20
+        }
+    )
+
+    # Create a contextual compression retriever
+    compressor = LLMChainExtractor.from_llm(llm)
+    compression_retriever = ContextualCompressionRetriever(
+        base_retriever=retriever,
+        doc_compressor=compressor,
+    )
+
+    # Create the QA chain
+    qa_chain = RetrievalQA.from_chain_type(
+        llm=llm,
+        chain_type="stuff",
+        retriever=compression_retriever,
+        chain_type_kwargs={
+            "prompt": PROMPT,
+        },
+        return_source_documents=True
+    )
+    
+    return qa_chain
 
 def handle_user_input(user_question):
     try:
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
+        qa_chain = create_qa_chain()
         
-        # Increase the number of retrieved documents and lower the distance threshold
-        docs = new_db.similarity_search(
-            user_question,
-            k=5,  # Retrieve more documents
-            fetch_k=20  # Consider more candidates
-        )
+        # Using the modern invoke method instead of __call__
+        response = qa_chain.invoke({
+            "query": user_question
+        })
         
-        # Debug information (optional - comment out in production)
-        st.write("Debug - Number of relevant documents found:", len(docs))
+        answer = response.get('result', '').strip()
+        source_docs = response.get('source_documents', [])
         
-        if not docs:
-            st.write("Reply: The answer is not available in the context.")
-            return
+        # Display the answer
+        st.write("Reply: ", answer)
         
-        chain = get_conversational_chain()
-        response = chain(
-            {
-                "input_documents": docs,
-                "question": user_question
-            },
-            return_only_outputs=True
-        )
-        
-        output_text = response.get("output_text", "").strip()
-        st.write("Reply: ", output_text)
+        # Optionally display source documents for debugging
+        if st.checkbox("Show source documents"):
+            st.write("Sources:")
+            for i, doc in enumerate(source_docs):
+                st.write(f"Source {i+1}:", doc.page_content)
         
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
