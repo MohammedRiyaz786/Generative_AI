@@ -16,4 +16,3 @@ from phi.storage.assistant.postgres import PgAssistantStorage
 
 load_dotenv()
 os.getenv("OPENAI_API_KEY")
-
