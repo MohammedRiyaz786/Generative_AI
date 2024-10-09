@@ -104,7 +104,7 @@ def handle_user_input(user_question):
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
         st.write("Reply: The answer is not available in the context.")
-#ged
+
 def main():
     st.set_page_config(page_title="Chat PDF")
     st.header("Chat with PDF using LLAMA2🦙 ")
