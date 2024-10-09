@@ -7,8 +7,6 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import LLMChainExtractor
 
 def get_pdf_text(pdf_docs):
     text = ""
@@ -69,18 +67,11 @@ def create_qa_chain():
         }
     )
 
-    # Create a contextual compression retriever
-    compressor = LLMChainExtractor.from_llm(llm)
-    compression_retriever = ContextualCompressionRetriever(
-        base_retriever=retriever,
-        doc_compressor=compressor,
-    )
-
-    # Create the QA chain
+    # Create the QA chain with the retriever
     qa_chain = RetrievalQA.from_chain_type(
         llm=llm,
         chain_type="stuff",
-        retriever=compression_retriever,
+        retriever=retriever,
         chain_type_kwargs={
             "prompt": PROMPT,
         },
@@ -93,7 +84,7 @@ def handle_user_input(user_question):
     try:
         qa_chain = create_qa_chain()
         
-        # Using the modern invoke method instead of __call__
+        # Using the modern invoke method
         response = qa_chain.invoke({
             "query": user_question
         })
