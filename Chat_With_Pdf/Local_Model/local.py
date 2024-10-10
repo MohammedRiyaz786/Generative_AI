@@ -127,7 +127,7 @@ def handle_user_input(user_question):
 
 def main():
     st.set_page_config(page_title="Chat PDF")
-    st.header("Chat with PDF using LLAMA2🦙 ")
+    st.header("Chat with PDF using LLAMA3🦙 ")
 
     with st.sidebar:
         st.title("Menu:")
