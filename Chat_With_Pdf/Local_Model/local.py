@@ -73,7 +73,7 @@ def create_qa_chain():
         input_variables=["context", "question"]
     )
 
-    llm = Ollama(model="llama2", temperature=0.1)
+    llm = Ollama(model="llama3.1", temperature=0.1)
 
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vectorstore = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
