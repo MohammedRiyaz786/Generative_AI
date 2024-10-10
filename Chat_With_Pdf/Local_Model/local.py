@@ -9,6 +9,8 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 import  pdfplumber
 
+
+
 def get_pdf_text(pdf_docs):
     text = ""
     for pdf in pdf_docs:
@@ -17,10 +19,13 @@ def get_pdf_text(pdf_docs):
                 text += page.extract_text() or ""
                 tables = page.extract_tables()
                 for table in tables:
-                    # Convert the table to a string format or handle as needed
                     for row in table:
-                        text += " | ".join(row) + "\n"  # Join table rows into text
+                        # Filter out None values and join the rest into a string
+                        filtered_row = [cell for cell in row if cell is not None]
+                        if filtered_row:  # Check if the filtered row is not empty
+                            text += " | ".join(filtered_row) + "\n"  # Join table rows into text
     return text
+
 
 # def get_pdf_text(pdf_docs):
 #     text = ""
