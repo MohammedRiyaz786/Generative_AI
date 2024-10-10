@@ -7,14 +7,28 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
+import  pdfplumber
 
 def get_pdf_text(pdf_docs):
     text = ""
     for pdf in pdf_docs:
-        pdf_reader = PdfReader(pdf)
-        for page in pdf_reader.pages:
-            text += page.extract_text()
+        with pdfplumber.open(pdf) as pdf_reader:
+            for page in pdf_reader.pages:
+                text += page.extract_text() or ""
+                tables = page.extract_tables()
+                for table in tables:
+                    # Convert the table to a string format or handle as needed
+                    for row in table:
+                        text += " | ".join(row) + "\n"  # Join table rows into text
     return text
+
+# def get_pdf_text(pdf_docs):
+#     text = ""
+#     for pdf in pdf_docs:
+#         pdf_reader = PdfReader(pdf)
+#         for page in pdf_reader.pages:
+#             text += page.extract_text()
+#     return text
 
 def get_text_chunks(text):
     text_splitter = RecursiveCharacterTextSplitter(
