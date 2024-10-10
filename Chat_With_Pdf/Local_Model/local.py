@@ -110,16 +110,16 @@ def handle_user_input(user_question):
         })
         
         answer = response.get('result', '').strip()
-        source_docs = response.get('source_documents', [])
+        #source_docs = response.get('source_documents', [])
         
         # Display the answer
         st.write("Reply: ", answer)
         
         # Optionally display source documents for debugging
-        if st.checkbox("Show source documents"):
-            st.write("Sources:")
-            for i, doc in enumerate(source_docs):
-                st.write(f"Source {i+1}:", doc.page_content)
+        # if st.checkbox("Show source documents"):
+        #     st.write("Sources:")
+        #     for i, doc in enumerate(source_docs):
+        #         st.write(f"Source {i+1}:", doc.page_content)
         
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
