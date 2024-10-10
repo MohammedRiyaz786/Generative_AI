@@ -82,8 +82,8 @@ def create_qa_chain():
     retriever = vectorstore.as_retriever(
         search_type="similarity",
         search_kwargs={
-            "k": 4,
-            "fetch_k": 20
+            "k": 5,
+            "fetch_k": 15
         }
     )
 
