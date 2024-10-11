@@ -77,7 +77,7 @@ def create_qa_chain():
     )
 
     qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,
+        llm=llm,verbose =True,
         chain_type="stuff",
         retriever=retriever,
         chain_type_kwargs={
