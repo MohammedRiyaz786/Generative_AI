@@ -33,7 +33,7 @@ def get_text_chunks(text):
         separators=["\n\n", "\n", ". ", " ", ""]
     )
     chunks = text_splitter.split_text(text)
-    print(chunks)
+    # print(chunks)
     return chunks
 
 def get_vector_store(text_chunks):
