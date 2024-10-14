@@ -94,13 +94,13 @@ def handle_user_input(user_question):
         qa_chain = create_qa_chain()
         
         response = qa_chain({"query": user_question})
-        #Retriving context 
+        # Printing Chunk Length
         retrieved_docs = response.get('source_documents', [])
         print("Number of retrieved chunks: ", len(retrieved_docs))
         
-        # for idx, doc in enumerate(retrieved_docs):
-        #     print(f"Chunk {idx + 1} (Length: {len(doc.page_content)}):")
-        #     print(doc.page_content)
+        for idx, doc in enumerate(retrieved_docs):
+            print(f"Chunk {idx + 1} (Length: {len(doc.page_content)}):")
+            print(doc.page_content)
 
         
         answer = response.get('result', '').strip()
