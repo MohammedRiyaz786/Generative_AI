@@ -87,20 +87,21 @@ def create_qa_chain():
         return_source_documents=True
     )
     
-    return qa_chain
+    return qa_chain, retriever
 
 def handle_user_input(user_question):
     try:
-        qa_chain = create_qa_chain()
+        qa_chain, r = create_qa_chain()
         
         response = qa_chain({"query": user_question})
         # Printing Chunk Length
-        retrieved_docs = response.get('source_documents', [])
-        print("Number of retrieved chunks: ", len(retrieved_docs))
+        # retrieved_docs = response.get('source_documents', [])
+        retrieved_docs = r.invoke(user_question)
+        print("Number of retrieved chunks: ", len(retrieved_docs),"\n\n",retrieved_docs)
         
-        for idx, doc in enumerate(retrieved_docs):
-            print(f"Chunk {idx + 1} (Length: {len(doc.page_content)}):")
-            print(doc.page_content)
+        # for idx, doc in enumerate(retrieved_docs):
+        #     print(f"Chunk {idx + 1} (Length: {len(doc.page_content)}):")
+        #     print(doc.page_content)
 
         
         answer = response.get('result', '').strip()
