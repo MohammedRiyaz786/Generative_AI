@@ -77,7 +77,8 @@ def create_qa_chain():
     )
 
     qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,verbose =True,
+        llm=llm,
+        verbose=True,
         chain_type="stuff",
         retriever=retriever,
         chain_type_kwargs={
@@ -93,6 +94,14 @@ def handle_user_input(user_question):
         qa_chain = create_qa_chain()
         
         response = qa_chain({"query": user_question})
+        #Retriving context 
+        retrieved_docs = response.get('source_documents', [])
+        st.write("Number of retrieved chunks: ", len(retrieved_docs))
+        
+        for idx, doc in enumerate(retrieved_docs):
+            st.write(f"Chunk {idx + 1} (Length: {len(doc.page_content)}):")
+            st.write(doc.page_content)
+
         
         answer = response.get('result', '').strip()
         if not answer:
