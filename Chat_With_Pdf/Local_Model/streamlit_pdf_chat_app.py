@@ -1,5 +1,6 @@
 
 import streamlit as st
+import utils
 from PyPDF2 import PdfReader
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -39,6 +40,7 @@ def get_text_chunks(text):
 def get_vector_store(text_chunks):
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
+    print(vector_store)
     vector_store.save_local("faiss_index")
 
 def create_qa_chain():
