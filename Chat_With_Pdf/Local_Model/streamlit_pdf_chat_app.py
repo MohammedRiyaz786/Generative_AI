@@ -307,7 +307,8 @@ def extract_file_content(uploaded_file):
     elif file_type == 'csv':
         return get_csv_text(uploaded_file)  # Correctly handle the uploaded CSV file
     elif file_type in ['xls', 'xlsx']:
-        return get_excel_text([uploaded_file])  # Correctly handle the uploaded Excel file
+        text,_= get_excel_text([uploaded_file])
+        return text  # Correctly handle the uploaded Excel file
     else:
         st.error("Unsupported file format. Please upload PDF, CSV, or Excel files.")
         return ""
