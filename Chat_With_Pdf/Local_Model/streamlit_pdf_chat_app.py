@@ -143,16 +143,18 @@
 
 # if __name__ == "__main__":
 #     main()
+
 import streamlit as st
-from utils import get_pdf_text, get_csv_text, get_excel_text  # Importing all necessary functions from utils
+from utils import get_pdf_text, get_csv_text, get_excel_text
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.llms import Ollama
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
+import os
 
-# Function to split text into chunks
+# Helper function to split text into chunks
 def get_text_chunks(text):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
@@ -163,27 +165,20 @@ def get_text_chunks(text):
     chunks = text_splitter.split_text(text)
     return chunks
 
-# Function to generate vector store from text chunks
+# Helper function to create a vector store from text chunks
 def get_vector_store(text_chunks):
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-    print(vector_store)
     vector_store.save_local("faiss_index")
 
-# Function to create a QA chain for question answering
+# Function to create the QA chain with prompt template
 def create_qa_chain():
     prompt_template = """
-    Use the following pieces of context to answer the question. If you cannot find the answer in the context, respond with "The answer is not available in the context." Do not make up or infer any information that is not explicitly stated in the context.
+    Use the following context to answer the question. If the answer is not available in the context, respond with "The answer is not available in the context." Do not infer information that is not explicitly stated.
 
     Context: {context}
 
     Question: {question}
-
-    Instructions:
-    1. Only use information from the provided context.
-    2. If the exact answer is in the context, provide it.
-    3. If the answer is not in the context, say "The answer is not available in the context."
-    4. Keep the answer concise and relevant.
 
     Answer:
     """
@@ -194,41 +189,29 @@ def create_qa_chain():
     )
 
     llm = Ollama(model="llama3.1", temperature=0.3)
-
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vectorstore = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
     
-    retriever = vectorstore.as_retriever(
-        search_type="similarity",
-        search_kwargs={
-            "k": 5,
-            "fetch_k": 15
-        }
-    )
+    retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 5, "fetch_k": 15})
 
     qa_chain = RetrievalQA.from_chain_type(
         llm=llm,
         verbose=True,
         chain_type="stuff",
         retriever=retriever,
-        chain_type_kwargs={
-            "prompt": PROMPT,
-        },
+        chain_type_kwargs={"prompt": PROMPT},
         return_source_documents=True
     )
     
-    return qa_chain, retriever
+    return qa_chain
 
-# Function to handle user input and return the result of the QA chain
+# Function to handle user queries
 def handle_user_input(user_question):
     try:
-        qa_chain, r = create_qa_chain()
-        
+        qa_chain = create_qa_chain()
         response = qa_chain({"query": user_question})
-        retrieved_docs = r.invoke(user_question)
-        print("Number of retrieved chunks: ", len(retrieved_docs), "\n\n", retrieved_docs)
-        
         answer = response.get('result', '').strip()
+        
         if not answer:
             answer = "The answer is not available in the context."
         
@@ -238,60 +221,42 @@ def handle_user_input(user_question):
         st.error(f"An error occurred: {str(e)}")
         st.write("Reply: The answer is not available in the context.")
 
-# Main function to run the Streamlit app
 def main():
-    st.set_page_config(page_title="Data Extraction and Chat with PDFs, CSVs, Excel Files")
-    st.header("Extract Data and Chat with PDFs, CSVs, Excel Files using LLAMA3🦙")
+    st.set_page_config(page_title="Chat PDF/CSV/Excel App")
+    st.header("Chat with PDF/CSV/Excel files using LLAMA3 🦙")
 
     with st.sidebar:
-        st.title("Upload Files:")
-        # File uploader for PDFs
-        pdf_docs = st.file_uploader(
-            "Upload your PDF Files", accept_multiple_files=True, type=["pdf"]
-        )
-        
-        # File uploader for CSV files
-        csv_file = st.file_uploader(
-            "Upload your CSV File", type=["csv"]
-        )
-        
-        # File uploader for Excel files
-        excel_file = st.file_uploader(
-            "Upload your Excel File", type=["xlsx"]
-        )
-        
-        # Button to process files
+        st.title("Menu:")
+        file_type = st.radio("Choose the file type:", ["PDF", "CSV", "Excel"])
+
+        if file_type == "PDF":
+            uploaded_files = st.file_uploader("Upload PDF Files", accept_multiple_files=True, type="pdf")
+        elif file_type == "CSV":
+            uploaded_files = st.file_uploader("Upload a CSV File", type="csv")
+        else:
+            uploaded_files = st.file_uploader("Upload Excel Files", accept_multiple_files=True, type="xlsx")
+
         if st.button("Submit & Process"):
-            if pdf_docs or csv_file or excel_file:
+            if uploaded_files:
                 with st.spinner("Processing..."):
                     raw_text = ""
-                    
-                    # Processing PDFs
-                    if pdf_docs:
-                        raw_text += get_pdf_text(pdf_docs)  # Extract text from PDFs
-                        
-                    # Processing CSV
-                    if csv_file:
-                        raw_text += get_csv_text(csv_file)  # Extract text from CSV
-                    
-                    # Processing Excel
-                    if excel_file:
-                        raw_text += get_excel_text(excel_file)  # Extract text from Excel
+                    if file_type == "PDF":
+                        raw_text = get_pdf_text(uploaded_files)
+                    elif file_type == "CSV":
+                        raw_text = get_csv_text(uploaded_files[0])  # Assuming single CSV
+                    else:  # Excel
+                        raw_text, _ = get_excel_text(uploaded_files)
 
-                    # Split text into chunks
                     text_chunks = get_text_chunks(raw_text)
-                    
-                    # Generate vector store
                     get_vector_store(text_chunks)
-                    
-                    st.success("Data extraction and processing completed.")
+                    st.success("Files processed successfully!")
             else:
-                st.warning("Please upload at least one file before processing.")
+                st.warning(f"Please upload {file_type} files before processing.")
 
-    # Section for users to input a question
-    user_question = st.text_input("Ask a Question from the Extracted Data")
+    user_question = st.text_input("Ask a Question based on uploaded files")
     if user_question:
         handle_user_input(user_question)
 
 if __name__ == "__main__":
     main()
+
