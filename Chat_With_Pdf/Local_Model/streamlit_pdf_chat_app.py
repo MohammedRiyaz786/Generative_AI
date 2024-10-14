@@ -1,6 +1,6 @@
 
 import streamlit as st
-import utils
+from utils import *
 from PyPDF2 import PdfReader
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -11,20 +11,20 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 import  pdfplumber
 
-def get_pdf_text(pdf_docs):
-    text = ""
-    for pdf in pdf_docs:
-        with pdfplumber.open(pdf) as pdf_reader:
-            for page in pdf_reader.pages:
-                text += page.extract_text() or ""
-                tables = page.extract_tables()
-                for table in tables:
-                    for row in table:
-                        # Filter out None values and join the rest into a string
-                        filtered_row = [cell for cell in row if cell is not None]
-                        if filtered_row:  # Check if the filtered row is not empty
-                            text += " | ".join(filtered_row) + "\n"  # Join table rows into text
-    return text
+# def get_pdf_text(pdf_docs):
+#     text = ""
+#     for pdf in pdf_docs:
+#         with pdfplumber.open(pdf) as pdf_reader:
+#             for page in pdf_reader.pages:
+#                 text += page.extract_text() or ""
+#                 tables = page.extract_tables()
+#                 for table in tables:
+#                     for row in table:
+#                         # Filter out None values and join the rest into a string
+#                         filtered_row = [cell for cell in row if cell is not None]
+#                         if filtered_row:  # Check if the filtered row is not empty
+#                             text += " | ".join(filtered_row) + "\n"  # Join table rows into text
+#     return text
 
 def get_text_chunks(text):
     text_splitter = RecursiveCharacterTextSplitter(
