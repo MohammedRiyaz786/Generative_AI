@@ -336,11 +336,11 @@
 
 #     Question: {question}
 
-#     Instructions:
-#     1. Only use information from the provided context
-#     2. If the exact answer is in the context, provide it
-#     3. If the answer is not in the context, say "The answer is not available in the context"
-#     4. Keep the answer concise and relevant
+    # Instructions:
+    # 1. Only use information from the provided context
+    # 2. If the exact answer is in the context, provide it
+    # 3. If the answer is not in the context, say "The answer is not available in the context"
+    # 4. Keep the answer concise and relevant
 
 #     Answer:
 #     """
@@ -503,6 +503,12 @@ def create_qa_chain():
     Context: {context}
 
     Question: {question}
+
+    Instructions:
+    1. Only use information from the provided context
+    2. If the exact answer is in the context, provide it
+    3. If the answer is not in the context, say "The answer is not available in the context"
+    4. Keep the answer concise and relevant
 
     Answer:
     """
