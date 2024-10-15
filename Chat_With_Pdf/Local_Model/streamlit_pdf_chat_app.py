@@ -541,9 +541,9 @@ def create_qa_chain():
 def handle_user_input(user_question):
     try:
         qa_chain, r = create_qa_chain()
-        
+        a= "------"*20      
         # Log the user question
-        logger.info("\n\n\n\n","-----"*20)
+        logger.info("\n\n\n\n",a)
         logger.info(f"User question: {user_question}")
         
         # Perform QA
@@ -551,7 +551,7 @@ def handle_user_input(user_question):
         
         # Retrieve documents
         retrieved_docs = r.invoke(user_question)
-        logger.info(f"Retrieved Documents: {retrieved_docs}")
+        logger.info(f"\nRetrieved Documents: {retrieved_docs}\n")
         
         # Extract the answer
         answer = response.get('result', '').strip()
@@ -559,8 +559,8 @@ def handle_user_input(user_question):
             answer = "The answer is not available in the context."
         
         # Log the final answer
-        logger.info(f"Answer: {answer}")
-        logger.info("-----"*20)
+        logger.info(f"Answer: {answer}\n")
+        logger.info(a)
         
         # Display the answer in Streamlit
         st.write("Reply: ", answer)
