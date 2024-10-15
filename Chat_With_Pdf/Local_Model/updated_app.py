@@ -38,6 +38,12 @@ def get_text_chunks(text):
         separators=["\n\n", "\n", ". ", " ", ""]
     )
     chunks = text_splitter.split_text(text)
+
+    # Log and print the chunks and their sizes
+    for i, chunk in enumerate(chunks):
+        logging.info(f"Chunk {i+1}: {chunk[:50]}... (length: {len(chunk)})")  # Log the first 50 characters and length
+        print(f"Chunk {i+1}: {chunk[:50]}... (length: {len(chunk)})")  # Print the first 50 characters and length
+
     return chunks
 
 def get_vector_store(text_chunks):
@@ -105,6 +111,13 @@ def handle_user_input(user_question):
 
         # Log the number of retrieved chunks
         logging.info(f"Number of retrieved chunks: {len(retrieved_docs)}")
+
+        # Log and print each retrieved chunk and its length
+        for i, doc in enumerate(retrieved_docs):
+            chunk_text = doc.page_content
+            chunk_length = len(chunk_text)
+            logging.info(f"Retrieved Chunk {i+1}: {chunk_text[:50]}... (length: {chunk_length})")
+            print(f"Retrieved Chunk {i+1}: {chunk_text[:50]}... (length: {chunk_length})")
 
         answer = response.get('result', '').strip()
         if not answer:
