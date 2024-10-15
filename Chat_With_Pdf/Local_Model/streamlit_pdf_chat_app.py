@@ -552,6 +552,18 @@ def handle_user_input(user_question):
         logger.info("\n\n\n\n",a)
         logger.info(f"User question: {user_question}")
         
+        #changes made
+        # Retrieve documents based on the user question
+        retrieved_docs = r.get_relevant_documents(user_question)
+
+        # Print the retrieved chunks in the backend console
+        print(f"Number of retrieved chunks: {len(retrieved_docs)}")
+        for idx, doc in enumerate(retrieved_docs):
+            print(f"\n--- Chunk {idx + 1} ---")
+            print(f"Length: {len(doc.page_content)}")
+            print(f"Content:\n{doc.page_content}")
+            print("\n---------------------")
+        # till here
         # Perform QA
         response = qa_chain({"query": user_question})
         
