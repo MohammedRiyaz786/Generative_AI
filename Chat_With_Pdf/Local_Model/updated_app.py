@@ -93,28 +93,61 @@ def create_qa_chain():
     
     return qa_chain, retriever
 
+# def handle_user_input(user_question):
+#     try:
+#         # Log the user's question
+#         logging.info(f"User question: {user_question}")
+
+#         qa_chain, r = create_qa_chain()
+        
+#         response = qa_chain({"query": user_question})
+#         retrieved_docs = r.invoke(user_question)
+
+#         # Log the number of retrieved chunks
+#         logging.info(f"Number of retrieved chunks: {len(retrieved_docs)}")
+#         print("Retrived Chunks")
+#         for  doc in retrieved_docs:
+#             print(doc['text'])
+
+
+
+#         answer = response.get('result', '').strip()
+#         if not answer:
+#             answer = "The answer is not available in the context."
+        
+#         st.write("Reply: ", answer)
+        
+#     except Exception as e:
+#         # Log the exception
+#         logging.error(f"Error: {str(e)}")
+#         st.error(f"An error occurred: {str(e)}")
+#         st.write("Reply: The answer is not available in the context.")
 def handle_user_input(user_question):
     try:
         # Log the user's question
         logging.info(f"User question: {user_question}")
 
-        qa_chain, r = create_qa_chain()
+        # Create the QA chain and retriever
+        qa_chain, retriever = create_qa_chain()
         
+        # Retrieve answer and documents
         response = qa_chain({"query": user_question})
-        retrieved_docs = r.invoke(user_question)
+        retrieved_docs = retriever.invoke(user_question)
 
-        # Log the number of retrieved chunks
+        # Log the number of retrieved chunks in the backend
         logging.info(f"Number of retrieved chunks: {len(retrieved_docs)}")
-        print("Retrived Chunks")
-        for  doc in retrieved_docs:
-            print(doc['text'])
+        
+        # Log and print the retrieved chunks in the backend
+        for i, doc in enumerate(retrieved_docs):
+            logging.info(f"Chunk {i+1}: {doc['text']}")
+            print(f"Chunk {i+1}: {doc['text']}")
 
-
-
+        # Extract the answer from the response
         answer = response.get('result', '').strip()
         if not answer:
             answer = "The answer is not available in the context."
-        
+
+        # Return the answer to the user (in Streamlit)
         st.write("Reply: ", answer)
         
     except Exception as e:
@@ -122,6 +155,7 @@ def handle_user_input(user_question):
         logging.error(f"Error: {str(e)}")
         st.error(f"An error occurred: {str(e)}")
         st.write("Reply: The answer is not available in the context.")
+
 
 def main():
     st.set_page_config(page_title="Chat with Documents")
