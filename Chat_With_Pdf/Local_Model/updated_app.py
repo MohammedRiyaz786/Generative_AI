@@ -105,11 +105,7 @@ def handle_user_input(user_question):
 
         # Log the number of retrieved chunks
         logging.info(f"Number of retrieved chunks: {len(retrieved_docs)}")
-        print("Retrived Chunks")
-        for  doc in retrieved_docs:
-            print(doc['text'])
-
-
+        
 
         answer = response.get('result', '').strip()
         if not answer:
