@@ -527,7 +527,8 @@ def get_vector_store(text_chunks, metadata_chunks):
 
 def create_qa_chain():
     prompt_template = """
-    Use the following pieces of context to answer the question. If the answer lies within a table, ensure you interpret the table's data correctly.
+    Use the following pieces of context to answer the question. 
+    Provide only the exact information relevant to the question without any additional details or explanation.
 
     Context: {context}
 
@@ -535,9 +536,8 @@ def create_qa_chain():
 
     Instructions:
     1. Only use information from the provided context.
-    2. If the exact answer is in the context, provide it.
-    3. If the answer is not in the context, say "The answer is not available in the context."
-    4. For tabular data, interpret the data accurately and include relevant rows/columns in the answer.
+    2. Provide a concise and direct answer, without any extra information or explanation.
+    3. Do not include any details about table structure or unrelated content.
 
     Answer:
     """
