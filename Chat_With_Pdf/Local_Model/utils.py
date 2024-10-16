@@ -173,21 +173,45 @@ import pandas as pd
 from langchain_core.documents import Document
 from io import StringIO
 
+# def get_pdf_text(pdf_docs):
+#     text = ""
+#     for pdf in pdf_docs:
+#         with pdfplumber.open(pdf) as pdf_reader:
+#             for page in pdf_reader.pages:
+#                 page_text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
+#                 text += page_text + "\n"
+                
+#                 tables = page.extract_tables()
+#                 for table in tables:
+#                     for row in table:
+#                         filtered_row = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()]
+#                         if filtered_row:
+#                             text += " | ".join(filtered_row) + "\n"
+#     return text
 def get_pdf_text(pdf_docs):
     text = ""
+    documents = []
+    
     for pdf in pdf_docs:
         with pdfplumber.open(pdf) as pdf_reader:
             for page in pdf_reader.pages:
+                # Extracting page text
                 page_text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
                 text += page_text + "\n"
                 
+                # Extracting tables
                 tables = page.extract_tables()
                 for table in tables:
+                    table_text = "Table:\n"
                     for row in table:
                         filtered_row = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()]
                         if filtered_row:
-                            text += " | ".join(filtered_row) + "\n"
-    return text
+                            # Using a list structure for table rows
+                            table_text += " | ".join(filtered_row) + "\n"
+                    text += table_text + "\n"
+                    documents.append(Document(page_content=table_text, metadata={'source': 'table'}))
+                    
+    return text, documents
 
 def get_csv_text(csv_file):
     text = ""
