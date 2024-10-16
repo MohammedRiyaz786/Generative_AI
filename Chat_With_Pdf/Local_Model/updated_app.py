@@ -461,7 +461,7 @@ def main():
             else:
                 st.warning("Please upload files before processing.")
 
-    user_question = st.text_input("Ask a Question from the Uploaded Files")
+    user_question = st.text_input("Ask a Question from the Uploaded Files",key="question_input")
     #print(user_question)
     # if user_question:
     #     handle_user_input(user_question)
