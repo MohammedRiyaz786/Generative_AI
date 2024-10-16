@@ -504,7 +504,8 @@ def extract_file_content(uploaded_file):
         st.error("Unsupported file format. Please upload PDF, CSV, or Excel files.")
         return ""
 
-def get_text_chunks(text):
+# **CHANGED: Added metadata parameter and return metadata_chunks in sync**
+def get_text_chunks(text, metadata):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50,
@@ -513,11 +514,12 @@ def get_text_chunks(text):
     )
     chunks = text_splitter.split_text(text)
     
-    # Custom handling for tables
-    table_chunks = [chunk for chunk in chunks if 'Table:' in chunk]
+    # **CHANGED: Create corresponding metadata for each chunk**
+    metadata_chunks = [metadata for _ in chunks]
     
-    return chunks, table_chunks
+    return chunks, metadata_chunks
 
+# **CHANGED: Now passing both text_chunks and metadata_chunks**
 def get_vector_store(text_chunks, metadata_chunks):
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings, metadatas=metadata_chunks)
@@ -613,15 +615,21 @@ def main():
         if st.button("Submit & Process"):
             if uploaded_files:
                 with st.spinner("Processing..."):
-                    raw_text = ""
-                    metadata_chunks = []
+                    all_text_chunks = []
+                    all_metadata_chunks = []
+
+                    # **CHANGED: Process each document individually and sync text/metadata**
                     for uploaded_file in uploaded_files:
                         raw_text, docs = extract_file_content(uploaded_file)
-                        metadata_chunks.extend(docs)
+                        
+                        # Process each document individually to keep text and metadata in sync
+                        for doc in docs:
+                            text_chunks, metadata_chunks = get_text_chunks(doc.page_content, doc.metadata)
+                            all_text_chunks.extend(text_chunks)
+                            all_metadata_chunks.extend(metadata_chunks)
 
-                    if raw_text:
-                        text_chunks, table_chunks = get_text_chunks(raw_text)
-                        get_vector_store(text_chunks, metadata_chunks)
+                    if all_text_chunks:
+                        get_vector_store(all_text_chunks, all_metadata_chunks)
                         st.success("Documents processed successfully!")
             else:
                 st.warning("Please upload files before processing.")
@@ -633,3 +641,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
