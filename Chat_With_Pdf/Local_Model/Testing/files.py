@@ -35,8 +35,8 @@ def extract_file_content(uploaded_file):
 
 def get_text_chunks(text, metadata):
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200,
+        chunk_size=1200,
+        chunk_overlap=300,
         length_function=len,
         separators=["\n\n", "\n", ". ", " ", ""]
     )
@@ -51,14 +51,20 @@ def get_vector_store(text_chunks, metadata_chunks):
 
 def create_qa_chain():
     prompt_template = """
-    Use the following pieces of context to answer the question. 
-    If the answer is not contained within the context, say "I don't have enough information to answer that question."
-    Provide a detailed and informative answer based on the context.
-    If the context contains tabular data, format your response accordingly.
+    You are an AI assistant tasked with answering questions based on the given context. The context may contain various types of information, including academic text, tables, and data.
 
     Context: {context}
 
     Question: {question}
+
+    Instructions:
+    1. Carefully analyze the context and the question.
+    2. If the answer is clearly stated in the context, provide it directly.
+    3. If the answer requires synthesizing information from multiple parts of the context, do so carefully.
+    4. If the context contains relevant tabular data, incorporate it into your answer appropriately.
+    5. If the answer is not contained within the context, or if you're unsure, say "I don't have enough information to answer that question accurately."
+    6. Provide your answer in a clear, concise manner, using academic language if appropriate.
+    7. If applicable, cite specific parts of the context to support your answer.
 
     Answer:
     """
@@ -75,7 +81,7 @@ def create_qa_chain():
     
     retriever = vectorstore.as_retriever(
         search_type="mmr",
-        search_kwargs={"k": 5, "fetch_k": 20}
+        search_kwargs={"k": 7, "fetch_k": 25}
     )
 
     qa_chain = RetrievalQA.from_chain_type(
