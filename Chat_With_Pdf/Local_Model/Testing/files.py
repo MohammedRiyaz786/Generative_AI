@@ -1,6 +1,6 @@
 import streamlit as st
 import logging
-from utils1 import  get_pdf_text, get_csv_text, get_excel_text
+from utils1 import get_pdf_text, get_csv_text, get_excel_text
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -8,20 +8,35 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
+from PyPDF2 import PdfReader  # Importing PdfReader for non-table extraction
 import os
 
 if not os.path.exists('static'):
     os.makedirs('static')
+
 # Setup logger
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
+
+# **NEW: Function for extracting text from non-table PDFs**
+def get_non_table_pdf_text(uploaded_file):
+    pdf_reader = PdfReader(uploaded_file)
+    text = ""
+    metadata = []
+
+    for page in pdf_reader.pages:
+        text += page.extract_text() + "\n"
+        # You can also add metadata extraction here if needed
+
+    return text, metadata
 
 # **CHANGED: Refactor file content extraction**
 def extract_file_content(uploaded_file):
     file_type = uploaded_file.name.split('.')[-1].lower()
 
     if file_type == 'pdf':
-        return get_pdf_text(uploaded_file)  # Correctly handle the uploaded PDF file
+        # Here we will use the function for non-table PDF extraction
+        return get_non_table_pdf_text(uploaded_file)  # Handle non-table PDFs
     elif file_type == 'csv':
         return get_csv_text(uploaded_file)  # Correctly handle the uploaded CSV file
     elif file_type in ['xls', 'xlsx']:
