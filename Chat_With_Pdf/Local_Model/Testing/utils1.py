@@ -6,7 +6,7 @@ import pandas as pd
 from langchain_core.documents import Document
 from io import StringIO
 from PyPDF2 import PdfReader
-i  
+
 
 def get_non_table_pdf_text(pdf_docs):
     """Extract text from non-table PDFs."""
