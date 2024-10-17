@@ -1,6 +1,6 @@
 import streamlit as st
 import logging
-from utils import extract_file_content, get_pdf_text, get_csv_text, get_excel_text
+from utils1 import  get_pdf_text, get_csv_text, get_excel_text
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
