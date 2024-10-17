@@ -5,6 +5,7 @@ import csv
 from io import StringIO
 from langchain_community.document_loaders import Document
 
+
 def extract_text_pymupdf(pdf_path):
     """
     Use PyMuPDF (fitz) to extract text from the PDF.

@@ -8,6 +8,10 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import Document
 import os
 
+#creatin Directory
+if not os.path.exists('static'):
+    os.makedirs('static')
+
 # Setup logger
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
