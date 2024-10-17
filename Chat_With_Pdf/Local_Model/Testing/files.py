@@ -11,8 +11,8 @@ from langchain_community.document_loaders import Document
 
 
 #creatin Directory
-if not os.path.exists('static'):
-    os.makedirs('static')
+if not os.path.exists('static_dir'):
+    os.makedirs('static_dir')
 
 # Setup logger
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
