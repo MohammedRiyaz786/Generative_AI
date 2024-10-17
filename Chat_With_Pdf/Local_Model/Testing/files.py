@@ -1,4 +1,6 @@
 import streamlit as st
+import os
+static_dir = os.path.join(os.getcwd(), 'static')
 import logging
 from utils1 import get_pdf_text, get_csv_text, get_excel_text
 from langchain_community.vectorstores import FAISS
@@ -6,7 +8,7 @@ from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import Document
-import os
+
 
 #creatin Directory
 if not os.path.exists('static'):
