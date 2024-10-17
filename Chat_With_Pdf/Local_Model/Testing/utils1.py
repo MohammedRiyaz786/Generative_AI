@@ -3,7 +3,7 @@ import fitz  # PyMuPDF for better text extraction from free-flowing PDFs
 import pandas as pd
 import csv
 from io import StringIO
-#from langchain_community.document_loaders import Document
+from langchain_community.document_loaders import Document
 
 
 def extract_text_pymupdf(pdf_path):
