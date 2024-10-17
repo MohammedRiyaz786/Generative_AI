@@ -1,6 +1,4 @@
 import streamlit as st
-
-static_dir = os.path.join(os.getcwd(), 'static')
 import logging
 from utils1 import get_pdf_text, get_csv_text, get_excel_text
 from langchain_community.vectorstores import FAISS
