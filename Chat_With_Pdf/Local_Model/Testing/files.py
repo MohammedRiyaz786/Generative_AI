@@ -1,6 +1,6 @@
 import streamlit as st
 import logging
-from utils1 import get_pdf_text, get_csv_text, get_excel_text,get_non_table_pdf_text
+from utils1 import get_pdf_text, get_csv_text, get_excel_text, get_non_table_pdf_text
 from PyPDF2 import PdfReader
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -15,37 +15,35 @@ import os
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Helper function to handle multiple file types
 def extract_file_content(uploaded_file):
     file_type = uploaded_file.name.split('.')[-1].lower()
 
     if file_type == 'pdf':
-        return get_pdf_text([uploaded_file])
+        # Use both tabular and non-tabular extraction methods
+        tabular_text, tabular_docs = get_pdf_text([uploaded_file])
+        non_tabular_text, non_tabular_docs = get_non_table_pdf_text([uploaded_file])
+        return tabular_text + non_tabular_text, tabular_docs + non_tabular_docs
     elif file_type == 'csv':
-        return get_csv_text(uploaded_file)  # Correctly handle the uploaded CSV file
+        text = get_csv_text(uploaded_file)
+        return text, [Document(page_content=text, metadata={'source': 'csv'})]
     elif file_type in ['xls', 'xlsx']:
-        text, _ = get_excel_text([uploaded_file])
-        return text  # Correctly handle the uploaded Excel file
+        text, docs = get_excel_text([uploaded_file])
+        return text, docs
     else:
         st.error("Unsupported file format. Please upload PDF, CSV, or Excel files.")
-        return ""
+        return "", []
 
-# **CHANGED: Added metadata parameter and return metadata_chunks in sync**
 def get_text_chunks(text, metadata):
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
+        chunk_size=1000,
+        chunk_overlap=200,
         length_function=len,
         separators=["\n\n", "\n", ". ", " ", ""]
     )
     chunks = text_splitter.split_text(text)
-    
-    # **CHANGED: Create corresponding metadata for each chunk**
     metadata_chunks = [metadata for _ in chunks]
-    
     return chunks, metadata_chunks
 
-# **CHANGED: Now passing both text_chunks and metadata_chunks**
 def get_vector_store(text_chunks, metadata_chunks):
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings, metadatas=metadata_chunks)
@@ -54,16 +52,13 @@ def get_vector_store(text_chunks, metadata_chunks):
 def create_qa_chain():
     prompt_template = """
     Use the following pieces of context to answer the question. 
-    Provide only the exact information relevant to the question without any additional details or explanation.
+    If the answer is not contained within the context, say "I don't have enough information to answer that question."
+    Provide a detailed and informative answer based on the context.
+    If the context contains tabular data, format your response accordingly.
 
     Context: {context}
 
     Question: {question}
-
-    Instructions:
-    1. Only use information from the provided context.
-    2. Provide a concise and direct answer, without any extra information or explanation.
-    3. Do not include any details about table structure or unrelated content.
 
     Answer:
     """
@@ -79,8 +74,8 @@ def create_qa_chain():
     vectorstore = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
     
     retriever = vectorstore.as_retriever(
-        search_type="similarity",
-        search_kwargs={"k": 5, "fetch_k": 15}
+        search_type="mmr",
+        search_kwargs={"k": 5, "fetch_k": 20}
     )
 
     qa_chain = RetrievalQA.from_chain_type(
@@ -96,7 +91,6 @@ def create_qa_chain():
 
 def handle_user_input(user_question):
     try:
-        # Log the user's question
         logging.info(f"User question: {user_question}")
 
         qa_chain, r = create_qa_chain()
@@ -104,29 +98,25 @@ def handle_user_input(user_question):
         response = qa_chain({"query": user_question})
         retrieved_docs = r.invoke(user_question)
 
-        # Log the number of retrieved chunks
         logging.info(f"Number of retrieved chunks: {len(retrieved_docs)}")
         
-        # Print chunks in the backend with improved readability
         print(f"\nRetrieved chunks for question: '{user_question}'\n")
         for i, doc in enumerate(retrieved_docs):
             print(f"Chunk {i + 1}:")
-            # Split the content into lines and print each line
             for line in doc.page_content.split('\n'):
                 print(line.strip())
             print("-" * 50)
 
         answer = response.get('result', '').strip()
         if not answer:
-            answer = "The answer is not available in the context."
+            answer = "I don't have enough information to answer that question."
         
         st.write("Reply: ", answer)
         
     except Exception as e:
-        # Log the exception
         logging.error(f"Error: {str(e)}")
         st.error(f"An error occurred: {str(e)}")
-        st.write("Reply: The answer is not available in the context.")
+        st.write("Reply: I'm sorry, but I encountered an error while processing your question.")
 
 def main():
     st.set_page_config(page_title="Chat with Documents")
@@ -144,11 +134,9 @@ def main():
                     all_text_chunks = []
                     all_metadata_chunks = []
 
-                    # **CHANGED: Process each document individually and sync text/metadata**
                     for uploaded_file in uploaded_files:
                         raw_text, docs = extract_file_content(uploaded_file)
                         
-                        # Process each document individually to keep text and metadata in sync
                         for doc in docs:
                             text_chunks, metadata_chunks = get_text_chunks(doc.page_content, doc.metadata)
                             all_text_chunks.extend(text_chunks)
@@ -167,4 +155,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

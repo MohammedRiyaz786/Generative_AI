@@ -1,28 +1,9 @@
-# Function to extract text from PDFs and create document objects
 import pdfplumber
 import csv
-import PyPDF2
 import pandas as pd
 from langchain_core.documents import Document
 from io import StringIO
 from PyPDF2 import PdfReader
-
-
-def get_non_table_pdf_text(pdf_docs):
-    """Extract text from non-table PDFs."""
-    text = ""
-    documents = []
-    
-    for pdf in pdf_docs:
-        with open(pdf, "rb") as f:
-            pdf_reader = PdfReader(f)
-            for page in pdf_reader.pages:
-                # Extracting page text
-                page_text = page.extract_text() or ""
-                text += page_text + "\n"
-                documents.append(Document(page_content=page_text, metadata={'source': 'pdf'}))
-                
-    return text, documents
 
 def get_pdf_text(pdf_docs):
     """Extract text from PDFs, including tables."""
@@ -31,7 +12,7 @@ def get_pdf_text(pdf_docs):
     
     for pdf in pdf_docs:
         with pdfplumber.open(pdf) as pdf_reader:
-            for page in pdf_reader.pages:
+            for page_num, page in enumerate(pdf_reader.pages):
                 # Extracting page text
                 page_text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
                 text += page_text + "\n"
@@ -45,10 +26,39 @@ def get_pdf_text(pdf_docs):
                         if filtered_row:
                             table_text += " | ".join(filtered_row) + "\n"
                     text += table_text + "\n"
-                    documents.append(Document(page_content=table_text, metadata={'source': 'table'}))
+                    documents.append(Document(page_content=table_text, metadata={'source': 'table', 'page': page_num + 1}))
+                
+                # Add non-table text as a separate document
+                documents.append(Document(page_content=page_text, metadata={'source': 'pdf_text', 'page': page_num + 1}))
                     
     return text, documents
 
+def get_non_table_pdf_text(pdf_docs):
+    """Extract text from non-table PDFs with improved handling."""
+    text = ""
+    documents = []
+    
+    for pdf in pdf_docs:
+        pdf_reader = PdfReader(pdf)
+        for page_num, page in enumerate(pdf_reader.pages):
+            # Extracting page text
+            page_text = page.extract_text() or ""
+            
+            # Improved text cleaning
+            cleaned_text = ' '.join(page_text.split())  # Remove extra whitespace
+            cleaned_text = cleaned_text.replace('-\n', '')  # Handle hyphenated words
+            
+            # Add page number to metadata
+            metadata = {'source': 'pdf_non_table', 'page': page_num + 1}
+            
+            # Create smaller chunks of text
+            chunks = [cleaned_text[i:i+1000] for i in range(0, len(cleaned_text), 800)]
+            
+            for chunk in chunks:
+                text += chunk + "\n"
+                documents.append(Document(page_content=chunk, metadata=metadata))
+                
+    return text, documents
 
 def get_csv_text(csv_file):
     text = ""
@@ -73,5 +83,5 @@ def get_excel_text(excel_files):
                 if filtered_row:
                     sheet_text += " | ".join(filtered_row) + "\n"
             text += sheet_text + "\n"
-            documents.append(Document(page_content=sheet_text, metadata={'source': f"Sheet {sheet_name}"}))
+            documents.append(Document(page_content=sheet_text, metadata={'source': f"Excel Sheet {sheet_name}"}))
     return text, documents
