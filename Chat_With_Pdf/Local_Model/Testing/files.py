@@ -1,6 +1,6 @@
 import streamlit as st
 import logging
-from utils import get_pdf_text, get_csv_text, get_excel_text
+from utils1 import get_pdf_text, get_csv_text, get_excel_text
 from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
