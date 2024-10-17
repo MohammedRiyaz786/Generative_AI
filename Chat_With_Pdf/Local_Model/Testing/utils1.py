@@ -9,6 +9,7 @@ def get_pdf_text(pdf_doc):
     text = ""
     documents = []
     
+    
     with pdfplumber.open(pdf_doc) as pdf_reader:
         for page in pdf_reader.pages:
             # Extracting page text
