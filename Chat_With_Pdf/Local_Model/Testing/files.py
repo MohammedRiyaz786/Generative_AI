@@ -1,27 +1,25 @@
 import streamlit as st
 import logging
-from utils1 import get_pdf_text, get_csv_text, get_excel_text
+from utils import extract_file_content, get_pdf_text, get_csv_text, get_excel_text
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import Document
+from langchain.chains import RetrievalQA
 import os
-
-#creatin Directory
-if not os.path.exists('static'):
-    os.makedirs('static')
 
 # Setup logger
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Helper function to handle multiple file types
+# **CHANGED: Refactor file content extraction**
 def extract_file_content(uploaded_file):
     file_type = uploaded_file.name.split('.')[-1].lower()
 
     if file_type == 'pdf':
-        return get_pdf_text([uploaded_file])
+        return get_pdf_text(uploaded_file)  # Correctly handle the uploaded PDF file
     elif file_type == 'csv':
         return get_csv_text(uploaded_file)  # Correctly handle the uploaded CSV file
     elif file_type in ['xls', 'xlsx']:
@@ -29,12 +27,10 @@ def extract_file_content(uploaded_file):
         return text  # Correctly handle the uploaded Excel file
     else:
         st.error("Unsupported file format. Please upload PDF, CSV, or Excel files.")
-        return ""
+        return "", []
 
+# **CHANGED: Added metadata parameter and return metadata_chunks in sync**
 def get_text_chunks(text, metadata):
-    """
-    Split text into smaller chunks using RecursiveCharacterTextSplitter.
-    """
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50,
@@ -43,23 +39,18 @@ def get_text_chunks(text, metadata):
     )
     chunks = text_splitter.split_text(text)
     
-    # Create corresponding metadata for each chunk
+    # **CHANGED: Create corresponding metadata for each chunk**
     metadata_chunks = [metadata for _ in chunks]
     
     return chunks, metadata_chunks
 
+# **CHANGED: Now passing both text_chunks and metadata_chunks**
 def get_vector_store(text_chunks, metadata_chunks):
-    """
-    Create FAISS vector store from the given text chunks.
-    """
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings, metadatas=metadata_chunks)
     vector_store.save_local("faiss_index")
 
 def create_qa_chain():
-    """
-    Create a QA chain using the retrieved documents from FAISS.
-    """
     prompt_template = """
     Use the following pieces of context to answer the question. 
     Provide only the exact information relevant to the question without any additional details or explanation.
@@ -103,9 +94,6 @@ def create_qa_chain():
     return qa_chain, retriever
 
 def handle_user_input(user_question):
-    """
-    Handle user's input and return answers using the QA chain.
-    """
     try:
         # Log the user's question
         logging.info(f"User question: {user_question}")
@@ -122,6 +110,7 @@ def handle_user_input(user_question):
         print(f"\nRetrieved chunks for question: '{user_question}'\n")
         for i, doc in enumerate(retrieved_docs):
             print(f"Chunk {i + 1}:")
+            # Split the content into lines and print each line
             for line in doc.page_content.split('\n'):
                 print(line.strip())
             print("-" * 50)
@@ -133,14 +122,12 @@ def handle_user_input(user_question):
         st.write("Reply: ", answer)
         
     except Exception as e:
+        # Log the exception
         logging.error(f"Error: {str(e)}")
         st.error(f"An error occurred: {str(e)}")
         st.write("Reply: The answer is not available in the context.")
 
 def main():
-    """
-    Main function to run the Streamlit app.
-    """
     st.set_page_config(page_title="Chat with Documents")
     st.header("Chat with Documents using LLAMA3🦙 ")
 
@@ -156,7 +143,7 @@ def main():
                     all_text_chunks = []
                     all_metadata_chunks = []
 
-                    # Process each document individually and sync text/metadata
+                    # **CHANGED: Process each document individually and sync text/metadata**
                     for uploaded_file in uploaded_files:
                         raw_text, docs = extract_file_content(uploaded_file)
                         

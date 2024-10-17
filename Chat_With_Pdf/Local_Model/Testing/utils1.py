@@ -1,55 +1,34 @@
 import pdfplumber
-import fitz  # PyMuPDF for better text extraction from free-flowing PDFs
-import pandas as pd
 import csv
+import pandas as pd
+from langchain_core.documents import Document
 from io import StringIO
-from langchain_community.document_loaders import Document
 
-
-def extract_text_pymupdf(pdf_path):
-    """
-    Use PyMuPDF (fitz) to extract text from the PDF.
-    Handles free-flowing text better than pdfplumber.
-    """
-    text = ""
-    doc = fitz.open(pdf_path)
-    for page_num in range(doc.page_count):
-        page = doc.load_page(page_num)
-        text += page.get_text("text")  # Extract plain text
-    return text
-
-def get_pdf_text(pdf_docs):
-    """
-    Main function to extract text from PDFs using both pdfplumber and PyMuPDF.
-    Extracts tables with pdfplumber and general text with PyMuPDF.
-    """
+# Function to extract text from PDFs and create document objects
+def get_pdf_text(pdf_doc):
     text = ""
     documents = []
     
-    for pdf in pdf_docs:
-        # Use pdfplumber to extract tables
-        with pdfplumber.open(pdf) as pdf_reader:
-            for page in pdf_reader.pages:
-                tables = page.extract_tables()
-                for table in tables:
-                    table_text = "Table:\n"
-                    for row in table:
-                        filtered_row = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()]
-                        if filtered_row:
-                            table_text += " | ".join(filtered_row) + "\n"
-                    text += table_text + "\n"
-                    documents.append(Document(page_content=table_text, metadata={'source': 'table'}))
-        
-        # Use PyMuPDF for better text extraction
-        non_table_text = extract_text_pymupdf(pdf)
-        text += non_table_text  # Add non-tabular text to the output
-
+    with pdfplumber.open(pdf_doc) as pdf_reader:
+        for page in pdf_reader.pages:
+            # Extracting page text
+            page_text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
+            text += page_text + "\n"
+            
+            # Extracting tables
+            tables = page.extract_tables()
+            for table in tables:
+                table_text = "Table:\n"
+                for row in table:
+                    filtered_row = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()]
+                    if filtered_row:
+                        table_text += " | ".join(filtered_row) + "\n"
+                text += table_text + "\n"
+                documents.append(Document(page_content=table_text, metadata={'source': 'table'}))
+    
     return text, documents
 
 def get_csv_text(csv_file):
-    """
-    Extract text from a CSV file.
-    """
     text = ""
     csv_file.seek(0)
     content = csv_file.read().decode('utf-8')
@@ -61,9 +40,6 @@ def get_csv_text(csv_file):
     return text
 
 def get_excel_text(excel_files):
-    """
-    Extract text from Excel files.
-    """
     text = ""
     documents = []
     for excel_file in excel_files:
