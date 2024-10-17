@@ -10,6 +10,8 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 import os
 
+if not os.path.exists('static'):
+    os.makedirs('static')
 # Setup logger
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
