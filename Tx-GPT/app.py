@@ -17,7 +17,6 @@ def extract_file_content(uploaded_file):
     file_type = uploaded_file.name.split('.')[-1].lower()
 
     if file_type == 'pdf':
-        # Use both tabular and non-tabular extraction methods
         tabular_text, tabular_docs = get_pdf_text([uploaded_file])
         non_tabular_text, non_tabular_docs = get_non_table_pdf_text([uploaded_file])
         return tabular_text + non_tabular_text, tabular_docs + non_tabular_docs
@@ -39,8 +38,8 @@ def extract_file_content(uploaded_file):
 
 def get_text_chunks(text, metadata):
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1200,
-        chunk_overlap=300,
+        chunk_size=1000,
+        chunk_overlap=200,
         length_function=len,
         separators=["\n\n", "\n", ". ", " ", ""]
     )
@@ -55,7 +54,7 @@ def get_vector_store(text_chunks, metadata_chunks):
 
 def create_qa_chain():
     prompt_template = """
-    You are an AI assistant tasked with answering questions based on the given context. The context may contain various types of information, such as academic text, bullet points, slides from presentations, tables, or data extracted from documents.
+    You are an AI assistant tasked with answering questions based on the given context. The context may contain various types of information, such as academic text, bullet points, slides from presentations, tables, mathematical formulas, or data extracted from documents.
 
     Context: {context}
 
@@ -63,12 +62,13 @@ def create_qa_chain():
 
     Instructions:
     1. Carefully analyze the context and the question.
-    2. Provide a **specific** and **point-to-point** answer to the question.
-    3. If the context contains **tables** or structured data, extract and present only the relevant part of the data directly related to the question.
-    4. If the context contains **slides** or bullet points (e.g., from a PowerPoint presentation), maintain their structure and give only the relevant bullet points.
-    5. **Avoid using unnecessary words or explanations** (e.g., 'therefore,' 'in conclusion'). Stick to providing **only the necessary information**.
-    6. If the answer is not contained within the context, simply respond: "No specific information available for this query."
-    7. Provide your answer in a concise and clear manner.
+    2. Provide a specific and point-to-point answer to the question.
+    3. If the context contains tables or structured data, extract and present only the relevant part of the data directly related to the question.
+    4. If the context contains slides or bullet points (e.g., from a PowerPoint presentation), maintain their structure and give only the relevant bullet points.
+    5. If mathematical formulas are present and relevant to the question, include them in your answer using LaTeX notation.
+    6. Avoid using unnecessary words or explanations. Stick to providing only the necessary information.
+    7. If the answer is not contained within the context, simply respond: "I don't have enough information to answer this question based on the given context."
+    8. Provide your answer in a concise and clear manner.
     """
 
     PROMPT = PromptTemplate(
@@ -83,7 +83,7 @@ def create_qa_chain():
     
     retriever = vectorstore.as_retriever(
         search_type="mmr",
-        search_kwargs={"k": 7, "fetch_k": 25}
+        search_kwargs={"k": 5, "fetch_k": 20}
     )
 
     qa_chain = RetrievalQA.from_chain_type(
@@ -101,10 +101,10 @@ def handle_user_input(user_question):
     try:
         logging.info(f"User question: {user_question}")
 
-        qa_chain, r = create_qa_chain()
+        qa_chain, retriever = create_qa_chain()
         
         response = qa_chain({"query": user_question})
-        retrieved_docs = r.invoke(user_question)
+        retrieved_docs = retriever.get_relevant_documents(user_question)
 
         logging.info(f"Number of retrieved chunks: {len(retrieved_docs)}")
         
@@ -117,9 +117,14 @@ def handle_user_input(user_question):
 
         answer = response.get('result', '').strip()
         if not answer:
-            answer = "No specific information available for this query."
+            answer = "I don't have enough information to answer this question based on the given context."
         
         st.write("Reply: ", answer)
+        
+        # Display source documents
+        st.write("Sources:")
+        for i, doc in enumerate(response.get('source_documents', [])[:3]):
+            st.write(f"Source {i+1}: {doc.metadata.get('source', 'Unknown')}")
         
     except Exception as e:
         logging.error(f"Error: {str(e)}")
@@ -128,7 +133,7 @@ def handle_user_input(user_question):
 
 def main():
     st.set_page_config(page_title="Chat with Documents")
-    st.header("Chat with Documents using LLAMA3🦙 ")
+    st.header("Chat with Documents using LLAMA3🦙")
 
     with st.sidebar:
         st.title("Menu:")
@@ -151,15 +156,4 @@ def main():
                             all_metadata_chunks.extend(metadata_chunks)
 
                     if all_text_chunks:
-                        get_vector_store(all_text_chunks, all_metadata_chunks)
-                        st.success("Documents processed successfully!")
-            else:
-                st.warning("Please upload files before processing.")
-
-    user_question = st.text_input("Ask a Question from the Uploaded Files", key="question_input")
-
-    if st.button("Search") and user_question:
-        handle_user_input(user_question)
-
-if __name__ == "__main__":
-    main()
+                        get_vector_store(all_text_chunks, all

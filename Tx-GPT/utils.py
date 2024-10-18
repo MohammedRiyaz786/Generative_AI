@@ -7,6 +7,7 @@ from PyPDF2 import PdfReader
 from pptx import Presentation
 from docx import Document as DocxDocument
 from pptx.enum.shapes import MSO_SHAPE_TYPE
+import re
 
 def get_pdf_text(pdf_docs):
     """Extract text from PDFs, including tables."""
@@ -91,10 +92,8 @@ def get_excel_text(excel_files):
             documents.append(Document(page_content=sheet_text, metadata={'source': f"Excel Sheet {sheet_name}"}))
     return text, documents
 
-
-
 def get_ppt_text(ppt_files):
-    """Extract text from PowerPoint files, including tables and complex shapes."""
+    """Extract text from PowerPoint files, including tables, complex shapes, and mathematical formulas."""
     text = ""
     documents = []
     
@@ -106,33 +105,62 @@ def get_ppt_text(ppt_files):
             # Extracting text from shapes
             for shape in slide.shapes:
                 if hasattr(shape, 'text'):
-                    slide_text += shape.text + "\n"
+                    shape_text = shape.text.strip()
+                    if shape_text:
+                        slide_text += shape_text + "\n"
+                
+                # Handle complex shapes (e.g., SmartArt)
+                if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
+                    for subshape in shape.shapes:
+                        if hasattr(subshape, 'text'):
+                            subshape_text = subshape.text.strip()
+                            if subshape_text:
+                                slide_text += subshape_text + "\n"
             
             # Extracting text from tables
             for shape in slide.shapes:
                 if shape.has_table:
                     table = shape.table
-                    table_text = f"Slide {slide_num + 1}: Table\n"
+                    table_text = f"Table in Slide {slide_num + 1}:\n"
                     for row in table.rows:
                         row_text = " | ".join([cell.text.strip() for cell in row.cells])
                         table_text += row_text + "\n"
-                    text += table_text + "\n"
-                    documents.append(Document(page_content=table_text, metadata={'source': f"PowerPoint Slide {slide_num + 1}"}))
+                    slide_text += table_text + "\n"
+            
+            # Extract mathematical formulas (assuming they're represented as text)
+            formulas = re.findall(r'\$.*?\$', slide_text)
+            if formulas:
+                slide_text += "Mathematical Formulas:\n" + "\n".join(formulas) + "\n"
 
             text += slide_text + "\n"
             documents.append(Document(page_content=slide_text, metadata={'source': f"PowerPoint Slide {slide_num + 1}"}))
     
     return text, documents
 
-
 def get_word_text(word_files):
-    """Extract text from Word files."""
+    """Extract text from Word files, including tables and mathematical formulas."""
     text = ""
     documents = []
     for word_file in word_files:
         doc = DocxDocument(word_file)
-        for para_num, para in enumerate(doc.paragraphs):
-            if para.text.strip():
-                text += para.text + "\n"
-                documents.append(Document(page_content=para.text, metadata={'source': f"Word Paragraph {para_num + 1}"}))
+        doc_text = ""
+        for element in doc.element.body:
+            if element.tag.endswith('p'):
+                paragraph = element.text
+                doc_text += paragraph + "\n"
+                
+                # Extract mathematical formulas (assuming they're represented as text)
+                formulas = re.findall(r'\$.*?\$', paragraph)
+                if formulas:
+                    doc_text += "Mathematical Formulas:\n" + "\n".join(formulas) + "\n"
+            
+            elif element.tag.endswith('tbl'):
+                table_text = "Table:\n"
+                for row in element.findall('.//w:tr', namespaces=element.nsmap):
+                    cells = [cell.text for cell in row.findall('.//w:t', namespaces=element.nsmap)]
+                    table_text += " | ".join(cells) + "\n"
+                doc_text += table_text + "\n"
+        
+        text += doc_text
+        documents.append(Document(page_content=doc_text, metadata={'source': f"Word Document"}))
     return text, documents
