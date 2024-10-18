@@ -63,13 +63,12 @@ def create_qa_chain():
 
     Instructions:
     1. Carefully analyze the context and the question.
-    2. If the context contains **tables** or structured data, identify and use the information appropriately in your answer. Mention the table data if relevant.
-    3. If the context contains **slides** or bullet points (e.g., from a PowerPoint presentation), maintain their structure when presenting information.
-    4. If the answer is clearly stated in the context, provide it directly.
-    5. If the answer requires synthesizing information from multiple parts of the context, do so carefully.
-    6. If the context contains relevant tabular data, incorporate it into your answer appropriately.
-    7. If the answer is not contained within the context, or if you're unsure, say "I don't have enough information to answer that question accurately."
-    8. Provide your answer in a clear and concise manner.
+    2. Provide a **specific** and **point-to-point** answer to the question.
+    3. If the context contains **tables** or structured data, extract and present only the relevant part of the data directly related to the question.
+    4. If the context contains **slides** or bullet points (e.g., from a PowerPoint presentation), maintain their structure and give only the relevant bullet points.
+    5. **Avoid using unnecessary words or explanations** (e.g., 'therefore,' 'in conclusion'). Stick to providing **only the necessary information**.
+    6. If the answer is not contained within the context, simply respond: "No specific information available for this query."
+    7. Provide your answer in a concise and clear manner.
     """
 
     PROMPT = PromptTemplate(
@@ -118,7 +117,7 @@ def handle_user_input(user_question):
 
         answer = response.get('result', '').strip()
         if not answer:
-            answer = "I don't have enough information to answer that question."
+            answer = "No specific information available for this query."
         
         st.write("Reply: ", answer)
         
