@@ -156,4 +156,15 @@ def main():
                             all_metadata_chunks.extend(metadata_chunks)
 
                     if all_text_chunks:
-                        get_vector_store(all_text_chunks, all
+                        get_vector_store(all_text_chunks, all_metadata_chunks)
+                        st.success("Documents processed successfully!")
+            else:
+                st.warning("Please upload files before processing.")
+
+    user_question = st.text_input("Ask a Question from the Uploaded Files", key="question_input")
+
+    if st.button("Search") and user_question:
+        handle_user_input(user_question)
+
+if __name__ == "__main__":
+    main()
