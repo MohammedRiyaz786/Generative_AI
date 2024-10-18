@@ -6,6 +6,7 @@ from io import StringIO
 from PyPDF2 import PdfReader
 from pptx import Presentation
 from docx import Document as DocxDocument
+from pptx.enum.shapes import MSO_SHAPE_TYPE
 
 def get_pdf_text(pdf_docs):
     """Extract text from PDFs, including tables."""
@@ -90,20 +91,39 @@ def get_excel_text(excel_files):
             documents.append(Document(page_content=sheet_text, metadata={'source': f"Excel Sheet {sheet_name}"}))
     return text, documents
 
+
+
 def get_ppt_text(ppt_files):
-    """Extract text from PowerPoint files."""
+    """Extract text from PowerPoint files, including tables and complex shapes."""
     text = ""
     documents = []
+    
     for ppt_file in ppt_files:
         prs = Presentation(ppt_file)
         for slide_num, slide in enumerate(prs.slides):
             slide_text = f"Slide {slide_num + 1}:\n"
+            
+            # Extracting text from shapes
             for shape in slide.shapes:
                 if hasattr(shape, 'text'):
                     slide_text += shape.text + "\n"
+            
+            # Extracting text from tables
+            for shape in slide.shapes:
+                if shape.has_table:
+                    table = shape.table
+                    table_text = f"Slide {slide_num + 1}: Table\n"
+                    for row in table.rows:
+                        row_text = " | ".join([cell.text.strip() for cell in row.cells])
+                        table_text += row_text + "\n"
+                    text += table_text + "\n"
+                    documents.append(Document(page_content=table_text, metadata={'source': f"PowerPoint Slide {slide_num + 1}"}))
+
             text += slide_text + "\n"
             documents.append(Document(page_content=slide_text, metadata={'source': f"PowerPoint Slide {slide_num + 1}"}))
+    
     return text, documents
+
 
 def get_word_text(word_files):
     """Extract text from Word files."""
