@@ -55,7 +55,7 @@ def get_vector_store(text_chunks, metadata_chunks):
 
 def create_qa_chain():
     prompt_template = """
-    You are an AI assistant tasked with answering questions based on the given context. The context may contain various types of information, including academic text, tables, and data.
+    You are an AI assistant tasked with answering questions based on the given context. The context may contain various types of information, such as academic text, bullet points, slides from presentations, tables, or data extracted from documents.
 
     Context: {context}
 
@@ -63,14 +63,13 @@ def create_qa_chain():
 
     Instructions:
     1. Carefully analyze the context and the question.
-    2. If the answer is clearly stated in the context, provide it directly.
-    3. If the answer requires synthesizing information from multiple parts of the context, do so carefully.
-    4. If the context contains relevant tabular data, incorporate it into your answer appropriately.
-    5. If the answer is not contained within the context, or if you're unsure, say "I don't have enough information to answer that question accurately."
-    6. Provide your answer in a clear, concise manner, using academic language if appropriate.
-    7. If applicable, cite specific parts of the context to support your answer.
-
-    Answer:
+    2. If the context contains **tables** or structured data, identify and use the information appropriately in your answer. Mention the table data if relevant.
+    3. If the context contains **slides** or bullet points (e.g., from a PowerPoint presentation), maintain their structure when presenting information.
+    4. If the answer is clearly stated in the context, provide it directly.
+    5. If the answer requires synthesizing information from multiple parts of the context, do so carefully.
+    6. If the context contains relevant tabular data, incorporate it into your answer appropriately.
+    7. If the answer is not contained within the context, or if you're unsure, say "I don't have enough information to answer that question accurately."
+    8. Provide your answer in a clear and concise manner.
     """
 
     PROMPT = PromptTemplate(
