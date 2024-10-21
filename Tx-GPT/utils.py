@@ -10,18 +10,15 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 import re
 
 def get_pdf_text(pdf_docs):
-    """Extract text from PDFs, including tables."""
     text = ""
     documents = []
     
     for pdf in pdf_docs:
         with pdfplumber.open(pdf) as pdf_reader:
             for page_num, page in enumerate(pdf_reader.pages):
-                # Extracting page text
                 page_text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
                 text += page_text + "\n"
                 
-                # Extracting tables
                 tables = page.extract_tables()
                 for table in tables:
                     table_text = "Table:\n"
@@ -32,31 +29,25 @@ def get_pdf_text(pdf_docs):
                     text += table_text + "\n"
                     documents.append(Document(page_content=table_text, metadata={'source': 'table', 'page': page_num + 1}))
                 
-                # Add non-table text as a separate document
                 documents.append(Document(page_content=page_text, metadata={'source': 'pdf_text', 'page': page_num + 1}))
                     
     return text, documents
 
 def get_non_table_pdf_text(pdf_docs):
-    """Extract text from non-table PDFs with improved handling."""
     text = ""
     documents = []
     
     for pdf in pdf_docs:
         pdf_reader = PdfReader(pdf)
         for page_num, page in enumerate(pdf_reader.pages):
-            # Extracting page text
             page_text = page.extract_text() or ""
             
-            # Improved text cleaning
-            cleaned_text = ' '.join(page_text.split())  # Remove extra whitespace
-            cleaned_text = cleaned_text.replace('-\n', '')  # Handle hyphenated words
+            cleaned_text = ' '.join(page_text.split())
+            cleaned_text = cleaned_text.replace('-\n', '')
             
-            # Add page number to metadata
             metadata = {'source': 'pdf_non_table', 'page': page_num + 1}
             
-            # Create smaller chunks of text
-            chunks = [cleaned_text[i:i+1000] for i in range(0, len(cleaned_text), 800)]
+            chunks = [cleaned_text[i:i+500] for i in range(0, len(cleaned_text), 400)]  # Reduced chunk size
             
             for chunk in chunks:
                 text += chunk + "\n"
@@ -65,7 +56,6 @@ def get_non_table_pdf_text(pdf_docs):
     return text, documents
 
 def get_csv_text(csv_file):
-    """Extract text from CSV files."""
     text = ""
     csv_file.seek(0)
     content = csv_file.read().decode('utf-8')
@@ -77,7 +67,6 @@ def get_csv_text(csv_file):
     return text
 
 def get_excel_text(excel_files):
-    """Extract text from Excel files."""
     text = ""
     documents = []
     for excel_file in excel_files:
@@ -93,7 +82,6 @@ def get_excel_text(excel_files):
     return text, documents
 
 def get_ppt_text(ppt_files):
-    """Extract text from PowerPoint files, including tables, complex shapes, and mathematical formulas."""
     text = ""
     documents = []
     
@@ -102,14 +90,12 @@ def get_ppt_text(ppt_files):
         for slide_num, slide in enumerate(prs.slides):
             slide_text = f"Slide {slide_num + 1}:\n"
             
-            # Extracting text from shapes
             for shape in slide.shapes:
                 if hasattr(shape, 'text'):
                     shape_text = shape.text.strip()
                     if shape_text:
                         slide_text += shape_text + "\n"
                 
-                # Handle complex shapes (e.g., SmartArt)
                 if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
                     for subshape in shape.shapes:
                         if hasattr(subshape, 'text'):
@@ -117,20 +103,18 @@ def get_ppt_text(ppt_files):
                             if subshape_text:
                                 slide_text += subshape_text + "\n"
             
-            # Extracting text from tables
             for shape in slide.shapes:
                 if shape.has_table:
                     table = shape.table
-                    table_text = f"Table in Slide {slide_num + 1}:\n"
+                    table_text = "Table:\n"
                     for row in table.rows:
                         row_text = " | ".join([cell.text.strip() for cell in row.cells])
                         table_text += row_text + "\n"
                     slide_text += table_text + "\n"
             
-            # Extract mathematical formulas (assuming they're represented as text)
             formulas = re.findall(r'\$.*?\$', slide_text)
             if formulas:
-                slide_text += "Mathematical Formulas:\n" + "\n".join(formulas) + "\n"
+                slide_text += "Formulas: " + " ".join(formulas) + "\n"
 
             text += slide_text + "\n"
             documents.append(Document(page_content=slide_text, metadata={'source': f"PowerPoint Slide {slide_num + 1}"}))
@@ -138,7 +122,6 @@ def get_ppt_text(ppt_files):
     return text, documents
 
 def get_word_text(word_files):
-    """Extract text from Word files, including tables and mathematical formulas."""
     text = ""
     documents = []
     for word_file in word_files:
@@ -149,10 +132,9 @@ def get_word_text(word_files):
                 paragraph = element.text
                 doc_text += paragraph + "\n"
                 
-                # Extract mathematical formulas (assuming they're represented as text)
                 formulas = re.findall(r'\$.*?\$', paragraph)
                 if formulas:
-                    doc_text += "Mathematical Formulas:\n" + "\n".join(formulas) + "\n"
+                    doc_text += "Formulas: " + " ".join(formulas) + "\n"
             
             elif element.tag.endswith('tbl'):
                 table_text = "Table:\n"

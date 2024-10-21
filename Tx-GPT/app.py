@@ -38,44 +38,61 @@ def extract_file_content(uploaded_file):
         return "", []
 
 def get_text_chunks(text, metadata):
-    print("Started chuncking!")
+    print("Started chunking!")
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200,
+        chunk_size=500,  # Reduced chunk size for more granular retrieval
+        chunk_overlap=50,
         length_function=len,
         separators=["\n\n", "\n", ". ", " ", ""]
     )
     chunks = text_splitter.split_text(text)
     metadata_chunks = [metadata for _ in chunks]
-    print("chuncking done!")
+    print("Chunking done!")
     return chunks, metadata_chunks
 
 def get_vector_store(text_chunks, metadata_chunks):
     print("Storing chunks in Database!")
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    print("Using device:","cuda" if torch.cuda.is_available() else "cpu")
-    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings, metadatas=metadata_chunks)
-    print("Using device:","cuda" if torch.cuda.is_available() else "cpu")
+    
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
+    embeddings.client.to(device)
+    
+    batch_size = 32
+    vector_store = None
+    
+    for i in range(0, len(text_chunks), batch_size):
+        batch_texts = text_chunks[i:i+batch_size]
+        batch_metadata = metadata_chunks[i:i+batch_size]
+        
+        if vector_store is None:
+            vector_store = FAISS.from_texts(batch_texts, embedding=embeddings, metadatas=batch_metadata)
+        else:
+            vector_store.add_texts(batch_texts, metadatas=batch_metadata)
+        
+        print(f"Processed batch {i//batch_size + 1}/{(len(text_chunks)-1)//batch_size + 1}")
+
     vector_store.save_local("faiss_index")
     print("Stored chunks in Database!")
+    return vector_store
 
 def create_qa_chain():
     prompt_template = """
-    You are an AI assistant tasked with answering questions based on the given context. The context may contain various types of information, such as academic text, bullet points, slides from presentations, tables, mathematical formulas, or data extracted from documents.
+    You are an AI assistant tasked with answering questions based on the given context. Provide a concise and point-to-point answer without mentioning sources or slides.
 
     Context: {context}
 
     Question: {question}
 
     Instructions:
-    1. Carefully analyze the context and the question.
-    2. Provide a specific and point-to-point answer to the question.
-    3. If the context contains tables or structured data, extract and present only the relevant part of the data directly related to the question.
-    4. If the context contains slides or bullet points (e.g., from a PowerPoint presentation), maintain their structure and give only the relevant bullet points.
-    5. If mathematical formulas are present and relevant to the question, include them in your answer using LaTeX notation.
-    6. Avoid using unnecessary words or explanations. Stick to providing only the necessary information.
-    7. If the answer is not contained within the context, simply respond: "I don't have enough information to answer this question based on the given context."
-    8. Provide your answer in a concise and clear manner.
+    1. Analyze the context and question carefully.
+    2. Provide a specific and concise answer to the question.
+    3. If the context contains tables or structured data, extract only the relevant information.
+    4. Maintain the structure of bullet points or lists if present in the relevant information.
+    5. Include mathematical formulas if relevant, using LaTeX notation.
+    6. Avoid unnecessary words or explanations. Stick to providing only the necessary information.
+    7. If the answer is not in the context, respond: "I don't have enough information to answer this question."
+    8. Do not mention sources, slide numbers, or any metadata in your answer.
     """
 
     PROMPT = PromptTemplate(
@@ -83,7 +100,7 @@ def create_qa_chain():
         input_variables=["context", "question"]
     )
 
-    llm = Ollama(model="llama3.1", temperature=0.3)
+    llm = Ollama(model="llama3.1", temperature=0.1)  # Reduced temperature for more focused answers
 
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vectorstore = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
@@ -95,43 +112,27 @@ def create_qa_chain():
 
     qa_chain = RetrievalQA.from_chain_type(
         llm=llm,
-        verbose=True,
         chain_type="stuff",
         retriever=retriever,
         chain_type_kwargs={"prompt": PROMPT},
         return_source_documents=True
     )
     
-    return qa_chain, retriever
+    return qa_chain
 
 def handle_user_input(user_question):
     try:
         logging.info(f"User question: {user_question}")
 
-        qa_chain, retriever = create_qa_chain()
+        qa_chain = create_qa_chain()
         
         response = qa_chain({"query": user_question})
-        retrieved_docs = retriever.get_relevant_documents(user_question)
-
-        logging.info(f"Number of retrieved chunks: {len(retrieved_docs)}")
-        
-        print(f"\nRetrieved chunks for question: '{user_question}'\n")
-        for i, doc in enumerate(retrieved_docs):
-            print(f"Chunk {i + 1}:")
-            for line in doc.page_content.split('\n'):
-                print(line.strip())
-            print("-" * 50)
 
         answer = response.get('result', '').strip()
         if not answer:
-            answer = "I don't have enough information to answer this question based on the given context."
+            answer = "I don't have enough information to answer this question."
         
         st.write("Reply: ", answer)
-        
-        # Display source documents
-        st.write("Sources:")
-        for i, doc in enumerate(response.get('source_documents', [])[:3]):
-            st.write(f"Source {i+1}: {doc.metadata.get('source', 'Unknown')}")
         
     except Exception as e:
         logging.error(f"Error: {str(e)}")
