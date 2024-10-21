@@ -8,6 +8,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
+import torch
 
 # Setup logger
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
@@ -37,6 +38,7 @@ def extract_file_content(uploaded_file):
         return "", []
 
 def get_text_chunks(text, metadata):
+    print("Started chuncking!")
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=200,
@@ -45,12 +47,17 @@ def get_text_chunks(text, metadata):
     )
     chunks = text_splitter.split_text(text)
     metadata_chunks = [metadata for _ in chunks]
+    print("chuncking done!")
     return chunks, metadata_chunks
 
 def get_vector_store(text_chunks, metadata_chunks):
+    print("Storing chunks in Database!")
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    print("Using device:","cuda" if torch.cuda.is_available() else "cpu")
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings, metadatas=metadata_chunks)
+    print("Using device:","cuda" if torch.cuda.is_available() else "cpu")
     vector_store.save_local("faiss_index")
+    print("Stored chunks in Database!")
 
 def create_qa_chain():
     prompt_template = """
@@ -144,6 +151,7 @@ def main():
         if st.button("Submit & Process"):
             if uploaded_files:
                 with st.spinner("Processing..."):
+                    print("Creating chunks!\n")
                     all_text_chunks = []
                     all_metadata_chunks = []
 
@@ -157,6 +165,7 @@ def main():
 
                     if all_text_chunks:
                         get_vector_store(all_text_chunks, all_metadata_chunks)
+                        print("Chunking Done!\n")
                         st.success("Documents processed successfully!")
             else:
                 st.warning("Please upload files before processing.")

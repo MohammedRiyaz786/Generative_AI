@@ -1,0 +1,232 @@
+2024-10-18 13:17:22,939 - INFO - Use pytorch device_name: cuda
+2024-10-18 13:17:22,940 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 13:17:26,073 - INFO - Loading faiss with AVX512 support.
+2024-10-18 13:17:26,087 - INFO - Successfully loaded faiss with AVX512 support.
+2024-10-18 13:17:43,384 - INFO - User question: Tell me Manager Name
+2024-10-18 13:17:43,387 - INFO - Use pytorch device_name: cuda
+2024-10-18 13:17:43,387 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 13:17:48,346 - INFO - Number of retrieved chunks: 7
+2024-10-18 13:18:33,906 - INFO - User question: what is LSTM ,explain inshort
+2024-10-18 13:18:33,908 - INFO - Use pytorch device_name: cuda
+2024-10-18 13:18:33,908 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 13:18:37,281 - INFO - Number of retrieved chunks: 7
+2024-10-18 13:19:05,141 - INFO - User question: Explain the problem statement
+2024-10-18 13:19:05,143 - INFO - Use pytorch device_name: cuda
+2024-10-18 13:19:05,143 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 13:19:09,116 - INFO - Number of retrieved chunks: 7
+2024-10-18 13:19:52,448 - INFO - User question: Explain Project Indroduction
+2024-10-18 13:19:52,450 - INFO - Use pytorch device_name: cuda
+2024-10-18 13:19:52,450 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 13:19:56,590 - INFO - Number of retrieved chunks: 7
+2024-10-18 13:20:28,753 - INFO - User question: What is  Project Indroduction in context?
+2024-10-18 13:20:28,755 - INFO - Use pytorch device_name: cuda
+2024-10-18 13:20:28,755 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 13:20:32,201 - INFO - Number of retrieved chunks: 7
+2024-10-18 13:21:04,130 - INFO - User question: What is Supervised Learning
+2024-10-18 13:21:04,133 - INFO - Use pytorch device_name: cuda
+2024-10-18 13:21:04,134 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 13:21:07,455 - INFO - Number of retrieved chunks: 7
+2024-10-18 13:21:36,774 - INFO - User question: What is Prime Minister of India is  Living
+2024-10-18 13:21:36,777 - INFO - Use pytorch device_name: cuda
+2024-10-18 13:21:36,777 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 13:21:40,334 - INFO - Number of retrieved chunks: 7
+2024-10-18 13:25:40,776 - INFO - Use pytorch device_name: cuda
+2024-10-18 13:25:40,776 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 13:26:09,035 - INFO - User question: Explain Insurance
+2024-10-18 13:26:09,038 - INFO - Use pytorch device_name: cuda
+2024-10-18 13:26:09,038 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 13:26:14,877 - INFO - Number of retrieved chunks: 7
+2024-10-18 13:26:39,837 - INFO - User question: What is personal insurance?
+2024-10-18 13:26:39,840 - INFO - Use pytorch device_name: cuda
+2024-10-18 13:26:39,840 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 13:26:43,683 - INFO - Number of retrieved chunks: 7
+2024-10-18 13:27:32,445 - INFO - User question: Types of Insurers
+2024-10-18 13:27:32,446 - INFO - Use pytorch device_name: cuda
+2024-10-18 13:27:32,446 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 13:27:36,153 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:12:32,405 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:12:32,406 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:12:36,080 - INFO - Loading faiss with AVX512 support.
+2024-10-18 17:12:36,091 - INFO - Successfully loaded faiss with AVX512 support.
+2024-10-18 17:13:16,646 - INFO - User question: Tell me about ThinkMoney
+2024-10-18 17:13:16,648 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:13:16,648 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:13:22,616 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:13:50,930 - INFO - User question: Tell me about CS4 - ThinkMoney
+2024-10-18 17:13:50,932 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:13:50,932 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:13:55,197 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:14:17,394 - INFO - User question: Tell me the solution for  CS4 - ThinkMoney
+2024-10-18 17:14:17,397 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:14:17,397 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:14:21,809 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:15:13,481 - INFO - User question: what is CS1 - Brightec
+2024-10-18 17:15:13,485 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:15:13,485 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:15:17,451 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:24:04,188 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:24:04,188 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:24:07,762 - INFO - Loading faiss with AVX512 support.
+2024-10-18 17:24:07,777 - INFO - Successfully loaded faiss with AVX512 support.
+2024-10-18 17:24:25,637 - INFO - User question: tell me about Nykaa
+2024-10-18 17:24:25,641 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:24:25,641 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:24:32,021 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:24:46,126 - INFO - User question: CS1 - Brightec
+2024-10-18 17:24:46,128 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:24:46,128 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:24:50,346 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:25:07,159 - INFO - User question: tell me about CS1 - Brightec
+2024-10-18 17:25:07,162 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:25:07,162 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:25:11,454 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:25:44,903 - INFO - User question: tell me about CS35 - wayfair
+2024-10-18 17:25:44,906 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:25:44,906 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:25:48,888 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:26:05,512 - INFO - User question: tell me about Nykaa
+2024-10-18 17:26:05,517 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:26:05,517 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:26:11,768 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:26:42,429 - INFO - User question: What is TCW
+2024-10-18 17:26:42,433 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:26:42,433 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:26:46,184 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:27:09,736 - INFO - User question: What is CS111-TCW
+2024-10-18 17:27:09,739 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:27:09,739 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:27:14,682 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:35:32,304 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:35:32,304 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:36:07,304 - INFO - Loading faiss with AVX512 support.
+2024-10-18 17:36:07,321 - INFO - Successfully loaded faiss with AVX512 support.
+2024-10-18 17:36:25,346 - INFO - User question: what is Juice Pharma Worldwide
+2024-10-18 17:36:25,350 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:36:25,350 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:36:31,407 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:37:23,351 - INFO - User question: what is CS-137 Juice Pharma Worldwide
+2024-10-18 17:37:23,353 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:37:23,354 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:37:27,902 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:38:15,115 - INFO - User question: what is the solution for customer bank?
+2024-10-18 17:38:15,117 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:38:15,118 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:38:27,309 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:39:19,892 - INFO - User question: what is the solution for CS165 - eposnow?
+2024-10-18 17:39:19,894 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:39:19,894 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:39:26,330 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:48:01,568 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:48:01,569 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:48:04,764 - INFO - Loading faiss with AVX512 support.
+2024-10-18 17:48:04,776 - INFO - Successfully loaded faiss with AVX512 support.
+2024-10-18 17:48:22,250 - INFO - User question: Fabory
+2024-10-18 17:48:22,252 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:48:22,252 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:48:27,450 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:49:00,912 - INFO - User question: tell me about CS89 - Fabory
+2024-10-18 17:49:00,914 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:49:00,914 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:49:04,358 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:49:26,088 - INFO - User question: What is the solution for CS89 - Fabory
+2024-10-18 17:49:26,090 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:49:26,090 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:49:29,685 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:49:48,913 - INFO - User question: What is the case study  for CS89 - Fabory
+2024-10-18 17:49:48,915 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:49:48,916 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:49:52,189 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:50:15,615 - INFO - User question: What is the case study  for TCW
+2024-10-18 17:50:15,618 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:50:15,618 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:50:18,681 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:50:43,439 - INFO - User question: tell me about  TCW
+2024-10-18 17:50:43,441 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:50:43,442 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:50:46,878 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:51:46,434 - INFO - User question: what is CS68 - TechMahindra
+2024-10-18 17:51:46,437 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:51:46,437 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:51:49,570 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:52:32,121 - INFO - User question: what is the solution of CS68 - TechMahindra
+2024-10-18 17:52:32,124 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:52:32,124 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:52:37,027 - INFO - Number of retrieved chunks: 7
+2024-10-18 17:53:00,375 - INFO - User question: what is the solution of CS19 – Lawrence General Hospital
+2024-10-18 17:53:00,377 - INFO - Use pytorch device_name: cuda
+2024-10-18 17:53:00,377 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-18 17:53:20,458 - INFO - Number of retrieved chunks: 7
+2024-10-21 10:41:47,277 - INFO - Use pytorch device_name: cuda
+2024-10-21 10:41:47,277 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 10:44:47,978 - INFO - Loading faiss with AVX512 support.
+2024-10-21 10:44:47,998 - INFO - Successfully loaded faiss with AVX512 support.
+2024-10-21 10:45:42,541 - INFO - User question: what is the manager name
+2024-10-21 10:45:42,544 - INFO - Use pytorch device_name: cuda
+2024-10-21 10:45:42,544 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 10:46:41,418 - INFO - User question: what is the manager name
+2024-10-21 10:46:41,420 - INFO - Use pytorch device_name: cuda
+2024-10-21 10:46:41,420 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 10:47:06,142 - INFO - Number of retrieved chunks: 5
+2024-10-21 10:47:06,563 - INFO - Number of retrieved chunks: 5
+2024-10-21 10:51:27,136 - INFO - User question: Tell me about Agenda?
+2024-10-21 10:51:27,139 - INFO - Use pytorch device_name: cuda
+2024-10-21 10:51:27,139 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 10:52:40,760 - INFO - Number of retrieved chunks: 5
+2024-10-21 10:53:17,812 - INFO - User question: What is Long Short Term Memory
+2024-10-21 10:53:17,815 - INFO - Use pytorch device_name: cuda
+2024-10-21 10:53:17,815 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 10:53:21,898 - INFO - Number of retrieved chunks: 5
+2024-10-21 11:15:46,141 - INFO - User question: What is Problem Statement
+2024-10-21 11:15:46,144 - INFO - Use pytorch device_name: cuda
+2024-10-21 11:15:46,144 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 11:16:52,112 - INFO - Number of retrieved chunks: 5
+2024-10-21 11:59:47,411 - INFO - Use pytorch device_name: cuda
+2024-10-21 11:59:47,411 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 12:04:28,676 - INFO - Use pytorch device_name: cuda
+2024-10-21 12:04:28,676 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 12:06:10,872 - INFO - Loading faiss with AVX512 support.
+2024-10-21 12:06:10,889 - INFO - Successfully loaded faiss with AVX512 support.
+2024-10-21 12:10:07,471 - INFO - Use pytorch device_name: cuda
+2024-10-21 12:10:07,471 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 12:11:09,936 - INFO - Loading faiss with AVX512 support.
+2024-10-21 12:11:09,956 - INFO - Successfully loaded faiss with AVX512 support.
+2024-10-21 12:11:24,865 - INFO - User question: What is Multi Head Attention
+2024-10-21 12:11:24,871 - INFO - Use pytorch device_name: cuda
+2024-10-21 12:11:24,871 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 12:11:30,210 - INFO - Number of retrieved chunks: 5
+2024-10-21 12:12:57,949 - INFO - User question: What is Multi Head Attention
+2024-10-21 12:12:57,951 - INFO - Use pytorch device_name: cuda
+2024-10-21 12:12:57,958 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 12:13:01,138 - INFO - Number of retrieved chunks: 5
+2024-10-21 12:14:07,488 - INFO - Use pytorch device_name: cuda
+2024-10-21 12:14:07,489 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 12:38:01,943 - INFO - Use pytorch device_name: cuda
+2024-10-21 12:38:01,943 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 12:39:47,671 - INFO - User question: Tell me about CS16 - Boltt?
+2024-10-21 12:39:47,674 - INFO - Use pytorch device_name: cuda
+2024-10-21 12:39:47,674 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 12:40:22,896 - INFO - Number of retrieved chunks: 5
+2024-10-21 12:44:15,885 - INFO - Use pytorch device_name: cuda
+2024-10-21 12:44:15,885 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 12:47:21,764 - INFO - Loading faiss with AVX512 support.
+2024-10-21 12:47:21,783 - INFO - Successfully loaded faiss with AVX512 support.
+2024-10-21 12:49:10,595 - INFO - Use pytorch device_name: cuda
+2024-10-21 12:49:10,595 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 12:51:17,997 - INFO - Loading faiss with AVX512 support.
+2024-10-21 12:51:18,015 - INFO - Successfully loaded faiss with AVX512 support.
+2024-10-21 12:54:11,078 - INFO - Use pytorch device_name: cuda
+2024-10-21 12:54:11,079 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 12:54:14,176 - INFO - Loading faiss with AVX512 support.
+2024-10-21 12:54:14,188 - INFO - Successfully loaded faiss with AVX512 support.
+2024-10-21 12:58:12,550 - INFO - Use pytorch device_name: cuda
+2024-10-21 12:58:12,551 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 13:06:12,894 - INFO - Use pytorch device_name: cuda
+2024-10-21 13:06:12,894 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 13:11:32,073 - INFO - Use pytorch device_name: cuda
+2024-10-21 13:11:32,074 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 13:11:38,900 - INFO - Loading faiss with AVX512 support.
+2024-10-21 13:11:38,920 - INFO - Successfully loaded faiss with AVX512 support.
+2024-10-21 13:12:03,198 - INFO - Use pytorch device_name: cuda
+2024-10-21 13:12:03,199 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2024-10-21 13:12:20,263 - INFO - Use pytorch device_name: cuda
+2024-10-21 13:12:20,263 - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
