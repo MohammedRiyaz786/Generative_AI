@@ -1,6 +1,16 @@
 import streamlit as st
 import logging
-from utils import get_pdf_text, get_csv_text, get_excel_text, get_non_table_pdf_text, get_ppt_text, get_word_text
+from utils import (
+    get_pdf_text, 
+    get_csv_text, 
+    get_excel_text, 
+    get_non_table_pdf_text, 
+    get_ppt_text, 
+    get_word_text,
+    process_image,
+    extract_tables_from_image,
+    extract_formulas_from_image
+)
 from langchain_core.documents import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -9,6 +19,13 @@ from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
 import torch
+from PIL import Image
+import io
+import cv2
+import numpy as np
+import pytesseract
+import easyocr
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 
 # Setup logger
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
@@ -16,31 +33,50 @@ logging.basicConfig(filename='app_log.txt', level=logging.INFO,
 
 def extract_file_content(uploaded_file):
     file_type = uploaded_file.name.split('.')[-1].lower()
-
-    if file_type == 'pdf':
-        tabular_text, tabular_docs = get_pdf_text([uploaded_file])
-        non_tabular_text, non_tabular_docs = get_non_table_pdf_text([uploaded_file])
-        return tabular_text + non_tabular_text, tabular_docs + non_tabular_docs
-    elif file_type == 'csv':
-        text = get_csv_text(uploaded_file)
-        return text, [Document(page_content=text, metadata={'source': 'csv'})]
-    elif file_type in ['xls', 'xlsx']:
-        text, docs = get_excel_text([uploaded_file])
-        return text, docs
-    elif file_type in ['pptx']:
-        text, docs = get_ppt_text([uploaded_file])
-        return text, docs
-    elif file_type in ['doc', 'docx']:
-        text, docs = get_word_text([uploaded_file])
-        return text, docs
-    else:
-        st.error("Unsupported file format. Please upload PDF, CSV, Excel, PowerPoint, or Word files.")
+    
+    # Handle different file types
+    image_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff'}
+    
+    try:
+        if file_type in image_extensions:
+            logging.info(f"Processing image file: {uploaded_file.name}")
+            return process_image(uploaded_file)
+        elif file_type == 'pdf':
+            logging.info(f"Processing PDF file: {uploaded_file.name}")
+            tabular_text, tabular_docs = get_pdf_text([uploaded_file])
+            non_tabular_text, non_tabular_docs = get_non_table_pdf_text([uploaded_file])
+            return tabular_text + non_tabular_text, tabular_docs + non_tabular_docs
+        elif file_type == 'csv':
+            logging.info(f"Processing CSV file: {uploaded_file.name}")
+            text = get_csv_text(uploaded_file)
+            return text, [Document(page_content=text, metadata={'source': 'csv'})]
+        elif file_type in ['xls', 'xlsx']:
+            logging.info(f"Processing Excel file: {uploaded_file.name}")
+            text, docs = get_excel_text([uploaded_file])
+            return text, docs
+        elif file_type in ['pptx']:
+            logging.info(f"Processing PowerPoint file: {uploaded_file.name}")
+            text, docs = get_ppt_text([uploaded_file])
+            return text, docs
+        elif file_type in ['doc', 'docx']:
+            logging.info(f"Processing Word file: {uploaded_file.name}")
+            text, docs = get_word_text([uploaded_file])
+            return text, docs
+        else:
+            error_msg = f"Unsupported file format: {file_type}"
+            logging.error(error_msg)
+            st.error(error_msg)
+            return "", []
+    except Exception as e:
+        error_msg = f"Error processing file {uploaded_file.name}: {str(e)}"
+        logging.error(error_msg)
+        st.error(error_msg)
         return "", []
 
 def get_text_chunks(text, metadata):
     print("Started chunking!")
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,  # Reduced chunk size for more granular retrieval
+        chunk_size=500,
         chunk_overlap=50,
         length_function=len,
         separators=["\n\n", "\n", ". ", " ", ""]
@@ -87,12 +123,13 @@ def create_qa_chain():
     Instructions:
     1. Analyze the context and question carefully.
     2. Provide a specific and concise answer to the question.
-    3. If the context contains tables or structured data, extract only the relevant information.
+    3. If the context contains tables, structured data, or information from images, extract only the relevant information.
     4. Maintain the structure of bullet points or lists if present in the relevant information.
     5. Include mathematical formulas if relevant, using LaTeX notation.
-    6. Avoid unnecessary words or explanations. Stick to providing only the necessary information.
-    7. If the answer is not in the context, respond: "I don't have enough information to answer this question."
-    8. Do not mention sources, slide numbers, or any metadata in your answer.
+    6. If you encounter text that appears to be from an image, interpret it in context.
+    7. For tabular data from images, present it in a clear, structured format.
+    8. If the answer is not in the context, respond: "I don't have enough information to answer this question."
+    9. Do not mention sources, slide numbers, or any metadata in your answer.
     """
 
     PROMPT = PromptTemplate(
@@ -100,7 +137,7 @@ def create_qa_chain():
         input_variables=["context", "question"]
     )
 
-    llm = Ollama(model="llama3.1", temperature=0.1)  # Reduced temperature for more focused answers
+    llm = Ollama(model="llama3.1", temperature=0.1)
 
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vectorstore = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
@@ -140,16 +177,17 @@ def handle_user_input(user_question):
         st.write("Reply: I'm sorry, but I encountered an error while processing your question.")
 
 def main():
-    st.set_page_config(page_title="Chat with Documents")
-    st.header("Chat with Documents using LLAMA3🦙")
+    st.set_page_config(page_title="Chat with Documents and Images")
+    st.header("Chat with Documents and Images using LLAMA3🦙")
 
     with st.sidebar:
         st.title("Menu:")
         uploaded_files = st.file_uploader(
-            "Upload your PDF, CSV, Excel, PowerPoint (PPTX), or Word files and Click on the Submit & Process Button",
+            "Upload your documents (PDF, CSV, Excel, PowerPoint, Word) or images (PNG, JPG, JPEG, GIF, BMP, TIFF)",
             accept_multiple_files=True,
-            type=['pdf', 'csv', 'xlsx', 'xls', 'pptx', 'docx']  # Specify pptx instead of ppt
-)
+            type=['pdf', 'csv', 'xlsx', 'xls', 'pptx', 'docx', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff']
+        )
+
         if st.button("Submit & Process"):
             if uploaded_files:
                 with st.spinner("Processing..."):
@@ -158,17 +196,28 @@ def main():
                     all_metadata_chunks = []
 
                     for uploaded_file in uploaded_files:
-                        raw_text, docs = extract_file_content(uploaded_file)
-                        
-                        for doc in docs:
-                            text_chunks, metadata_chunks = get_text_chunks(doc.page_content, doc.metadata)
-                            all_text_chunks.extend(text_chunks)
-                            all_metadata_chunks.extend(metadata_chunks)
+                        try:
+                            raw_text, docs = extract_file_content(uploaded_file)
+                            
+                            if raw_text.strip() and docs:  # Only process if we got valid content
+                                for doc in docs:
+                                    text_chunks, metadata_chunks = get_text_chunks(doc.page_content, doc.metadata)
+                                    all_text_chunks.extend(text_chunks)
+                                    all_metadata_chunks.extend(metadata_chunks)
+                            else:
+                                st.warning(f"No content could be extracted from {uploaded_file.name}")
+                                
+                        except Exception as e:
+                            st.error(f"Error processing {uploaded_file.name}: {str(e)}")
+                            logging.error(f"Error processing {uploaded_file.name}: {str(e)}")
+                            continue
 
                     if all_text_chunks:
                         get_vector_store(all_text_chunks, all_metadata_chunks)
                         print("Chunking Done!\n")
-                        st.success("Documents processed successfully!")
+                        st.success("Documents and images processed successfully!")
+                    else:
+                        st.error("No content could be extracted from any of the uploaded files.")
             else:
                 st.warning("Please upload files before processing.")
 
