@@ -28,7 +28,7 @@ import easyocr
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 
 # Setup logger
-logging.basicConfig(filename='app_log.txt', level=logging.INFO,
+logging.basicConfig(filename='app_log2.txt', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 def extract_file_content(uploaded_file):
