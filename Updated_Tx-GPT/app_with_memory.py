@@ -1,3 +1,5 @@
+# app.py
+
 import streamlit as st
 import logging
 from utils import (
@@ -17,7 +19,8 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
-from langchain.chains import RetrievalQA
+from langchain.chains import ConversationalRetrievalQA
+from langchain.memory import ConversationBufferMemory
 import torch
 from PIL import Image
 import io
@@ -28,10 +31,22 @@ import easyocr
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 
 # Setup logger
-logging.basicConfig(filename='app_log2.txt', level=logging.INFO,
+logging.basicConfig(filename='app_log.txt', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
+def init_session_state():
+    """Initialize session state variables"""
+    if 'memory' not in st.session_state:
+        st.session_state.memory = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True,
+            output_key='answer'
+        )
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+
 def extract_file_content(uploaded_file):
+    """Extract content from uploaded files"""
     file_type = uploaded_file.name.split('.')[-1].lower()
     
     # Handle different file types
@@ -74,7 +89,7 @@ def extract_file_content(uploaded_file):
         return "", []
 
 def get_text_chunks(text, metadata):
-    print("Started chunking!")
+    """Split text into chunks"""
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50,
@@ -83,58 +98,58 @@ def get_text_chunks(text, metadata):
     )
     chunks = text_splitter.split_text(text)
     metadata_chunks = [metadata for _ in chunks]
-    print("Chunking done!")
     return chunks, metadata_chunks
 
 def get_vector_store(text_chunks, metadata_chunks):
-    print("Storing chunks in Database!")
+    """Create or update vector store"""
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}")
     embeddings.client.to(device)
     
     batch_size = 32
     vector_store = None
     
     for i in range(0, len(text_chunks), batch_size):
-        batch_texts = text_chunks[i:i + batch_size]
-        batch_metadata = metadata_chunks[i:i + batch_size]
+        batch_texts = text_chunks[i:i+batch_size]
+        batch_metadata = metadata_chunks[i:i+batch_size]
         
         if vector_store is None:
             vector_store = FAISS.from_texts(batch_texts, embedding=embeddings, metadatas=batch_metadata)
         else:
             vector_store.add_texts(batch_texts, metadatas=batch_metadata)
-        
-        print(f"Processed batch {i // batch_size + 1}/{(len(text_chunks) - 1) // batch_size + 1}")
-
+    
     vector_store.save_local("faiss_index")
-    print("Stored chunks in Database!")
     return vector_store
 
 def create_qa_chain():
+    """Create QA chain with memory"""
     prompt_template = """
-    You are an AI assistant tasked with answering questions based on the given context. Provide a concise and point-to-point answer without mentioning sources or slides.
+    You are an AI assistant tasked with answering questions based on the given context and chat history. 
+    Provide a concise and point-to-point answer without mentioning sources or slides.
 
-    Context: {context}
+    Previous conversation context:
+    {chat_history}
+
+    Current context: {context}
 
     Question: {question}
 
     Instructions:
-    1. Analyze the context and question carefully.
+    1. Consider both the chat history and current context when formulating your response.
     2. Provide a specific and concise answer to the question.
     3. If the context contains tables, structured data, or information from images, extract only the relevant information.
     4. Maintain the structure of bullet points or lists if present in the relevant information.
     5. Include mathematical formulas if relevant, using LaTeX notation.
     6. If you encounter text that appears to be from an image, interpret it in context.
     7. For tabular data from images, present it in a clear, structured format.
-    8. If the answer is not in the context, respond: "I don't have enough information to answer this question."
+    8. If the answer is not in the context or chat history, respond: "I don't have enough information to answer this question."
     9. Do not mention sources, slide numbers, or any metadata in your answer.
     """
 
     PROMPT = PromptTemplate(
         template=prompt_template,
-        input_variables=["context", "question"]
+        input_variables=["context", "question", "chat_history"]
     )
 
     llm = Ollama(model="llama3.1", temperature=0.1)
@@ -147,27 +162,41 @@ def create_qa_chain():
         search_kwargs={"k": 5, "fetch_k": 20}
     )
 
-    qa_chain = RetrievalQA.from_chain_type(
+    qa_chain = ConversationalRetrievalQA.from_llm(
         llm=llm,
-        chain_type="stuff",
         retriever=retriever,
-        chain_type_kwargs={"prompt": PROMPT},
+        memory=st.session_state.memory,
+        combine_docs_chain_kwargs={"prompt": PROMPT},
         return_source_documents=True
     )
     
     return qa_chain
 
 def handle_user_input(user_question):
+    """Process user input and generate response"""
     try:
         logging.info(f"User question: {user_question}")
 
         qa_chain = create_qa_chain()
         
-        response = qa_chain({"query": user_question})
-
-        answer = response.get('result', '').strip()
+        # Add user question to chat history
+        st.session_state.chat_history.append({"role": "user", "content": user_question})
+        
+        # Get response from QA chain
+        response = qa_chain({"question": user_question})
+        answer = response.get('answer', '').strip()
+        
         if not answer:
             answer = "I don't have enough information to answer this question."
+        
+        # Add assistant response to chat history
+        st.session_state.chat_history.append({"role": "assistant", "content": answer})
+        
+        # Display chat history
+        st.write("Chat History:")
+        for message in st.session_state.chat_history[-6:]:  # Show last 6 messages
+            role = "You" if message["role"] == "user" else "Assistant"
+            st.write(f"{role}: {message['content']}")
         
         st.write("Reply: ", answer)
         
@@ -177,11 +206,24 @@ def handle_user_input(user_question):
         st.write("Reply: I'm sorry, but I encountered an error while processing your question.")
 
 def main():
+    """Main application function"""
     st.set_page_config(page_title="Chat with Documents and Images")
     st.header("Chat with Documents and Images using LLAMA3🦙")
 
+    # Initialize session state
+    init_session_state()
+
+    # Sidebar
     with st.sidebar:
         st.title("Menu:")
+        
+        # Clear chat history button
+        if st.button("Clear Chat History"):
+            st.session_state.memory.clear()
+            st.session_state.chat_history = []
+            st.success("Chat history cleared!")
+        
+        # File uploader
         uploaded_files = st.file_uploader(
             "Upload your documents (PDF, CSV, Excel, PowerPoint, Word) or images (PNG, JPG, JPEG, GIF, BMP, TIFF)",
             accept_multiple_files=True,
@@ -191,7 +233,6 @@ def main():
         if st.button("Submit & Process"):
             if uploaded_files:
                 with st.spinner("Processing..."):
-                    print("Creating chunks!\n")
                     all_text_chunks = []
                     all_metadata_chunks = []
 
@@ -199,7 +240,7 @@ def main():
                         try:
                             raw_text, docs = extract_file_content(uploaded_file)
                             
-                            if raw_text.strip() and docs:  # Only process if we got valid content
+                            if raw_text.strip() and docs:
                                 for doc in docs:
                                     text_chunks, metadata_chunks = get_text_chunks(doc.page_content, doc.metadata)
                                     all_text_chunks.extend(text_chunks)
@@ -214,13 +255,13 @@ def main():
 
                     if all_text_chunks:
                         get_vector_store(all_text_chunks, all_metadata_chunks)
-                        print("Chunking Done!\n")
                         st.success("Documents and images processed successfully!")
                     else:
                         st.error("No content could be extracted from any of the uploaded files.")
             else:
                 st.warning("Please upload files before processing.")
 
+    # Main chat interface
     user_question = st.text_input("Ask a Question from the Uploaded Files", key="question_input")
 
     if st.button("Search") and user_question:
