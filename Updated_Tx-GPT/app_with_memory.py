@@ -119,7 +119,7 @@ def create_qa_chain():
     You are an AI assistant tasked with answering questions based on the given context and chat history. 
     Provide a concise and point-to-point answer without mentioning sources or slides.
 
-    Previous conversation context:
+    System Instructions (Previous conversation context):
     {chat_history}
 
     Current context: {context}
