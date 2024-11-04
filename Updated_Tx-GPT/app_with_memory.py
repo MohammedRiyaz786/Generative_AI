@@ -17,7 +17,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
-from langchain.chains import ConversationalRetrievalQA
+from langchain.chains import ConversationalRetrievalQAChain
 from langchain.memory import ConversationBufferMemory
 import torch
 from PIL import Image
@@ -150,7 +150,7 @@ def create_qa_chain():
         search_kwargs={"k": 5, "fetch_k": 20}
     )
 
-    qa_chain = ConversationalRetrievalQA.from_llm(
+    qa_chain = ConversationalRetrievalQAChain.from_llm(
         llm=llm,
         retriever=retriever,
         memory=st.session_state.memory,
