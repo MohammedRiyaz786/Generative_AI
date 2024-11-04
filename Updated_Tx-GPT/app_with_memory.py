@@ -1,6 +1,3 @@
-# app.py
-
-
 import streamlit as st
 import logging
 from utils import (
@@ -35,19 +32,15 @@ from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-def init_session_state():
-    """Initialize session state variables"""
-    if 'memory' not in st.session_state:
-        st.session_state.memory = ConversationBufferMemory(
-            memory_key="chat_history",
-            return_messages=True,
-            output_key='answer'
-        )
-    if 'chat_history' not in st.session_state:
-        st.session_state.chat_history = []
+# Initialize session state for memory
+if 'memory' not in st.session_state:
+    st.session_state.memory = ConversationBufferMemory(
+        memory_key="chat_history",
+        return_messages=True,
+        output_key='answer'
+    )
 
 def extract_file_content(uploaded_file):
-    """Extract content from uploaded files"""
     file_type = uploaded_file.name.split('.')[-1].lower()
     
     # Handle different file types
@@ -90,7 +83,6 @@ def extract_file_content(uploaded_file):
         return "", []
 
 def get_text_chunks(text, metadata):
-    """Split text into chunks"""
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50,
@@ -102,7 +94,6 @@ def get_text_chunks(text, metadata):
     return chunks, metadata_chunks
 
 def get_vector_store(text_chunks, metadata_chunks):
-    """Create or update vector store"""
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -124,7 +115,6 @@ def get_vector_store(text_chunks, metadata_chunks):
     return vector_store
 
 def create_qa_chain():
-    """Create QA chain with memory"""
     prompt_template = """
     You are an AI assistant tasked with answering questions based on the given context and chat history. 
     Provide a concise and point-to-point answer without mentioning sources or slides.
@@ -137,15 +127,12 @@ def create_qa_chain():
     Question: {question}
 
     Instructions:
-    1. Consider both the chat history and current context when formulating your response.
-    2. Provide a specific and concise answer to the question.
-    3. If the context contains tables, structured data, or information from images, extract only the relevant information.
-    4. Maintain the structure of bullet points or lists if present in the relevant information.
-    5. Include mathematical formulas if relevant, using LaTeX notation.
-    6. If you encounter text that appears to be from an image, interpret it in context.
-    7. For tabular data from images, present it in a clear, structured format.
-    8. If the answer is not in the context or chat history, respond: "I don't have enough information to answer this question."
-    9. Do not mention sources, slide numbers, or any metadata in your answer.
+    1. Consider both the chat history and current context when forming your answer
+    2. Provide a specific and concise answer to the question
+    3. If referencing previous questions or answers, be explicit about what you're referring to
+    4. If the answer requires information from both the history and current context, combine them appropriately
+    5. If you cannot find the answer in either the history or current context, respond: "I don't have enough information to answer this question."
+    6. Do not mention sources, slide numbers, or file names in your response
     """
 
     PROMPT = PromptTemplate(
@@ -174,32 +161,28 @@ def create_qa_chain():
     return qa_chain
 
 def handle_user_input(user_question):
-    """Process user input and generate response"""
     try:
         logging.info(f"User question: {user_question}")
 
         qa_chain = create_qa_chain()
         
-        # Add user question to chat history
-        st.session_state.chat_history.append({"role": "user", "content": user_question})
-        
-        # Get response from QA chain
         response = qa_chain({"question": user_question})
-        answer = response.get('answer', '').strip()
         
+        answer = response.get('answer', '').strip()
         if not answer:
             answer = "I don't have enough information to answer this question."
         
-        # Add assistant response to chat history
-        st.session_state.chat_history.append({"role": "assistant", "content": answer})
+        # Store the conversation in session state for display
+        if 'conversation' not in st.session_state:
+            st.session_state.conversation = []
+        st.session_state.conversation.append({"user": user_question, "assistant": answer})
         
-        # Display chat history
-        st.write("Chat History:")
-        for message in st.session_state.chat_history[-6:]:  # Show last 6 messages
-            role = "You" if message["role"] == "user" else "Assistant"
-            st.write(f"{role}: {message['content']}")
-        
-        st.write("Reply: ", answer)
+        # Display the conversation history
+        for message in st.session_state.conversation:
+            with st.chat_message("user"):
+                st.write(message["user"])
+            with st.chat_message("assistant"):
+                st.write(message["assistant"])
         
     except Exception as e:
         logging.error(f"Error: {str(e)}")
@@ -207,24 +190,18 @@ def handle_user_input(user_question):
         st.write("Reply: I'm sorry, but I encountered an error while processing your question.")
 
 def main():
-    """Main application function"""
     st.set_page_config(page_title="Chat with Documents and Images")
     st.header("Chat with Documents and Images using LLAMA3🦙")
 
-    # Initialize session state
-    init_session_state()
+    # Add a button to clear conversation history
+    if st.sidebar.button("Clear Conversation"):
+        st.session_state.memory.clear()
+        if 'conversation' in st.session_state:
+            st.session_state.conversation = []
+        st.success("Conversation history cleared!")
 
-    # Sidebar
     with st.sidebar:
         st.title("Menu:")
-        
-        # Clear chat history button
-        if st.button("Clear Chat History"):
-            st.session_state.memory.clear()
-            st.session_state.chat_history = []
-            st.success("Chat history cleared!")
-        
-        # File uploader
         uploaded_files = st.file_uploader(
             "Upload your documents (PDF, CSV, Excel, PowerPoint, Word) or images (PNG, JPG, JPEG, GIF, BMP, TIFF)",
             accept_multiple_files=True,
@@ -234,6 +211,7 @@ def main():
         if st.button("Submit & Process"):
             if uploaded_files:
                 with st.spinner("Processing..."):
+                    print("Creating chunks!\n")
                     all_text_chunks = []
                     all_metadata_chunks = []
 
@@ -256,16 +234,17 @@ def main():
 
                     if all_text_chunks:
                         get_vector_store(all_text_chunks, all_metadata_chunks)
+                        print("Chunking Done!\n")
                         st.success("Documents and images processed successfully!")
                     else:
                         st.error("No content could be extracted from any of the uploaded files.")
             else:
                 st.warning("Please upload files before processing.")
 
-    # Main chat interface
-    user_question = st.text_input("Ask a Question from the Uploaded Files", key="question_input")
+    # Use chat input instead of text input for a more conversational feel
+    user_question = st.chat_input("Ask a question about your documents")
 
-    if st.button("Search") and user_question:
+    if user_question:
         handle_user_input(user_question)
 
 if __name__ == "__main__":
