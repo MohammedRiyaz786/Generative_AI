@@ -1,4 +1,7 @@
 import streamlit as st
+# Set page config as the first Streamlit command
+st.set_page_config(page_title="Chat with Documents and Images", layout="wide")
+
 import logging
 from utils import (
     get_pdf_text, 
@@ -22,11 +25,7 @@ from langchain.memory import ConversationBufferMemory
 import torch
 from PIL import Image
 import io
-import cv2
 import numpy as np
-import pytesseract
-import easyocr
-from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 
 # Setup logger
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
@@ -193,9 +192,9 @@ def handle_user_input(user_question):
         st.write("Reply: I'm sorry, but I encountered an error while processing your question.")
 
 def main():
-    st.set_page_config(page_title="Chat with Documents and Images")
     st.header("Chat with Documents and Images using LLAMA3🦙")
 
+    # Add clear chat history button in sidebar
     if st.sidebar.button("Clear Chat History"):
         if 'chat_history' in st.session_state:
             st.session_state.chat_history = []
