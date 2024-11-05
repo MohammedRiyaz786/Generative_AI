@@ -182,8 +182,47 @@ def extract_formulas_from_image(gray_image):
         logging.warning(f"Formula extraction failed: {str(e)}")
         return ""
 
+# def get_pdf_text(pdf_docs):
+#     """Extract text and tables from PDF documents."""
+#     text = ""
+#     documents = []
+    
+#     for pdf in pdf_docs:
+#         try:
+#             with pdfplumber.open(pdf) as pdf_reader:
+#                 for page_num, page in enumerate(pdf_reader.pages):
+#                     # Extract text
+#                     page_text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
+#                     text += page_text + "\n"
+                    
+#                     # Extract tables
+#                     tables = page.extract_tables()
+#                     for table in tables:
+#                         table_text = "Table:\n"
+#                         for row in table:
+#                             filtered_row = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()]
+#                             if filtered_row:
+#                                 table_text += " | ".join(filtered_row) + "\n"
+#                         text += table_text + "\n"
+#                         documents.append(Document(
+#                             page_content=table_text,
+#                             metadata={'source': 'table', 'page': page_num + 1, 'filename': pdf.name}
+#                         ))
+                    
+#                     documents.append(Document(
+#                         page_content=page_text,
+#                         metadata={'source': 'pdf_text', 'page': page_num + 1, 'filename': pdf.name}
+#                     ))
+#         except Exception as e:
+#             logging.error(f"Error processing PDF {pdf.name}: {str(e)}")
+#             raise
+                    
+#     return text, documents
 def get_pdf_text(pdf_docs):
-    """Extract text and tables from PDF documents."""
+    """
+    Extract text and tables from PDF documents with enhanced table processing and structure preservation.
+    Returns both raw text and structured documents for RAG pipeline.
+    """
     text = ""
     documents = []
     
@@ -191,33 +230,95 @@ def get_pdf_text(pdf_docs):
         try:
             with pdfplumber.open(pdf) as pdf_reader:
                 for page_num, page in enumerate(pdf_reader.pages):
-                    # Extract text
-                    page_text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
-                    text += page_text + "\n"
-                    
-                    # Extract tables
+                    # Extract and process tables first
                     tables = page.extract_tables()
                     for table in tables:
-                        table_text = "Table:\n"
-                        for row in table:
-                            filtered_row = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()]
-                            if filtered_row:
-                                table_text += " | ".join(filtered_row) + "\n"
-                        text += table_text + "\n"
-                        documents.append(Document(
+                        # Convert table to structured format
+                        header_row = [str(cell).strip() if cell else "" for cell in table[0]]
+                        table_data = []
+                        
+                        # Process each row and maintain column alignment
+                        for row in table[1:]:
+                            row_data = {}
+                            for idx, cell in enumerate(row):
+                                if idx < len(header_row):
+                                    header = header_row[idx] if header_row[idx] else f"Column_{idx}"
+                                    row_data[header] = str(cell).strip() if cell else ""
+                            table_data.append(row_data)
+                        
+                        # Create searchable table text
+                        table_text = "Table Content:\n"
+                        # Add headers
+                        table_text += " | ".join(header_row) + "\n"
+                        # Add separator
+                        table_text += "-" * 50 + "\n"
+                        # Add data rows
+                        for row in table_data:
+                            table_text += " | ".join(row.values()) + "\n"
+                        
+                        # Store table as structured document
+                        table_doc = Document(
                             page_content=table_text,
-                            metadata={'source': 'table', 'page': page_num + 1, 'filename': pdf.name}
-                        ))
+                            metadata={
+                                'source': 'table',
+                                'page': page_num + 1,
+                                'filename': pdf.name,
+                                'table_data': table_data,  # Store structured data for easier querying
+                                'headers': header_row
+                            }
+                        )
+                        documents.append(table_doc)
+                        text += table_text + "\n"
                     
-                    documents.append(Document(
-                        page_content=page_text,
-                        metadata={'source': 'pdf_text', 'page': page_num + 1, 'filename': pdf.name}
-                    ))
+                    # Extract and process regular text
+                    page_text = page.extract_text(
+                        x_tolerance=3,
+                        y_tolerance=3,
+                        layout=True,  # Preserve layout information
+                        keep_blank_chars=True  # Maintain spacing
+                    ) or ""
+                    
+                    # Clean and structure the text
+                    cleaned_text = clean_text(page_text)
+                    
+                    # Create text document with enhanced metadata
+                    text_doc = Document(
+                        page_content=cleaned_text,
+                        metadata={
+                            'source': 'pdf_text',
+                            'page': page_num + 1,
+                            'filename': pdf.name,
+                            'layout_info': {
+                                'width': page.width,
+                                'height': page.height,
+                                'orientation': 'portrait' if page.height > page.width else 'landscape'
+                            }
+                        }
+                    )
+                    documents.append(text_doc)
+                    text += cleaned_text + "\n"
+                    
         except Exception as e:
             logging.error(f"Error processing PDF {pdf.name}: {str(e)}")
             raise
                     
     return text, documents
+
+def clean_text(text):
+    """Clean and structure extracted text."""
+    # Remove excessive whitespace while preserving meaningful spacing
+    text = re.sub(r'\s+', ' ', text).strip()
+    
+    # Preserve list structures
+    text = re.sub(r'(?<=\d)\.(?=\s)', '. ', text)
+    
+    # Preserve paragraph breaks
+    text = re.sub(r'([.!?])\s+', r'\1\n\n', text)
+    
+    # Handle special characters and encoding issues
+    text = text.encode('ascii', 'ignore').decode('ascii')
+    
+    return text
 
 def get_non_table_pdf_text(pdf_docs):
     """Extract non-tabular text from PDF documents."""
