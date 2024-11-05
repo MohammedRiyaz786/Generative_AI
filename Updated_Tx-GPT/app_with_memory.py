@@ -115,25 +115,60 @@ def get_vector_store(text_chunks, metadata_chunks):
     return vector_store
 
 def create_qa_chain():
-    prompt_template = """
-    You are an AI assistant tasked with answering questions based on the given context and chat history. 
-    Provide a concise and point-to-point answer without mentioning sources or slides.
+    prompt_template = """You are a direct and efficient AI assistant.
 
-    System Instructions (Previous conversation context):
-    {chat_history}
+    IF the user's message is any variation of:
+    - "Hi", "Hello", "Hey", "Hii", "Hola"
+    - "Hi my name is [name]"
+    - "Hello I am [name]"
+    THEN respond only with: "Hello! How can I help you today?"
 
-    Current context: {context}
+    FOR ALL OTHER QUESTIONS:
+    1. Use only the provided information:
+    - Context: {context}
+    - Chat History: {chat_history}
+    - Current Question: {question}
 
-    Question: {question}
+    2. Your response must be:
+    - Direct and to-the-point
+    - Based only on given context and history
+    - Without any explanations about your capabilities
+    - Without mentioning sources or references
+    
+    3. If the answer cannot be found in context or history:
+    Response should be only: "I don't have enough information to answer this question."
 
-    Instructions:
-    1. Consider both the chat history and current context when forming your answer
-    2. Provide a specific and concise answer to the question
-    3. If referencing previous questions or answers, be explicit about what you're referring to
-    4. If the answer requires information from both the history and current context, combine them appropriately
-    5. If you cannot find the answer in either the history or current context, respond: "I don't have enough information to answer this question."
-    6. Do not mention sources, slide numbers, or file names in your response
-    """
+    4. Never start responses with:
+    - "Based on..."
+    - "According to..."
+    - "I understand..."
+    - "Let me..."
+
+    5. Never end responses with:
+    - "Is there anything else..."
+    - "Let me know if..."
+    - "Feel free to..."
+
+    Question: {question}"""
+    # prompt_template = """
+    # You are an AI assistant tasked with answering questions based on the given context and chat history. 
+    # Provide a concise and point-to-point answer without mentioning sources or slides.
+
+    # System Instructions (Previous conversation context):
+    # {chat_history}
+
+    # Current context: {context}
+
+    # Question: {question}
+
+    # Instructions:
+    # 1. Consider both the chat history and current context when forming your answer
+    # 2. Provide a specific and concise answer to the question
+    # 3. If referencing previous questions or answers, be explicit about what you're referring to
+    # 4. If the answer requires information from both the history and current context, combine them appropriately
+    # 5. If you cannot find the answer in either the history or current context, respond: "I don't have enough information to answer this question."
+    # 6. Do not mention sources, slide numbers, or file names in your response
+    # """
 
     PROMPT = PromptTemplate(
         template=prompt_template,
