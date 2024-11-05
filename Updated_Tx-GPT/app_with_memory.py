@@ -28,11 +28,11 @@ import pytesseract
 import easyocr
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 
-# Setup logger
+
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Initialize session state for memory
+
 if 'memory' not in st.session_state:
     st.session_state.memory = ConversationBufferMemory(
         memory_key="chat_history",
@@ -43,7 +43,7 @@ if 'memory' not in st.session_state:
 def extract_file_content(uploaded_file):
     file_type = uploaded_file.name.split('.')[-1].lower()
     
-    # Handle different file types
+    
     image_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff'}
     
     try:
@@ -172,12 +172,12 @@ def handle_user_input(user_question):
         if not answer:
             answer = "I don't have enough information to answer this question."
         
-        # Store the conversation in session state for display
+        
         if 'conversation' not in st.session_state:
             st.session_state.conversation = []
         st.session_state.conversation.append({"user": user_question, "assistant": answer})
         
-        # Display the conversation history
+        
         for message in st.session_state.conversation:
             with st.chat_message("user"):
                 st.write(message["user"])
@@ -193,7 +193,7 @@ def main():
     st.set_page_config(page_title="Chat with Documents and Images")
     st.header("Chat with Documents and Images using LLAMA3🦙")
 
-    # Add a button to clear conversation history
+    
     if st.sidebar.button("Clear Conversation"):
         st.session_state.memory.clear()
         if 'conversation' in st.session_state:
@@ -241,7 +241,7 @@ def main():
             else:
                 st.warning("Please upload files before processing.")
 
-    # Use chat input instead of text input for a more conversational feel
+
     user_question = st.chat_input("Ask a question about your documents")
 
     if user_question:
