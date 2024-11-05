@@ -117,13 +117,15 @@ def get_vector_store(text_chunks, metadata_chunks):
 def create_qa_chain():
     prompt_template = """You are a direct and efficient AI assistant.
 
-    IF the user's message is any variation of:
-    - "Hi", "Hello", "Hey", "Hii", "Hola"
-    - "Hi my name is [name]"
-    - "Hello I am [name]"
+    IF the user's message matches ANY of these patterns:
+    - "Hi", "Hello", "Hey", "Hii", "Hola" (just greeting)
+    - "My name is [any name]"
+    - "I am [any name]"
+    - "[any greeting] my name is [any name]"
+    - "[any greeting] I am [any name]"
     THEN respond only with: "Hello! How can I help you today?"
 
-    FOR ALL OTHER QUESTIONS:
+    OTHERWISE:
     1. Use only the provided information:
     - Context: {context}
     - Chat History: {chat_history}
