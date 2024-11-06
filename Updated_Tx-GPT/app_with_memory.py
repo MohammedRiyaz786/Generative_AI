@@ -272,7 +272,7 @@ def main():
                     if all_text_chunks:
                         get_vector_store(all_text_chunks, all_metadata_chunks)
                         print("Chunking Done!\n")
-                        st.success("Documents and images processed successfully!")
+                        st.success("File processed successfully!")
                     else:
                         st.error("No content could be extracted from any of the uploaded files.")
             else:
