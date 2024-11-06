@@ -82,31 +82,6 @@ def extract_file_content(uploaded_file):
         logging.error(error_msg)
         st.error(error_msg)
         return "", []
-    
-def process_documents(uploaded_files):
-    """Process uploaded files and build the vector store."""
-    all_text_chunks = []
-    all_metadata_chunks = []
-    
-    for uploaded_file in uploaded_files:
-        # Process each file
-        text, docs = extract_file_content(uploaded_file)
-        
-        if text and docs:
-            for doc in docs:
-                chunks, metadata_chunks = get_text_chunks(doc.page_content, doc.metadata)
-                all_text_chunks.extend(chunks)
-                all_metadata_chunks.extend(metadata_chunks)
-    
-    # Ensure text chunks are processed only if we have valid data
-    if all_text_chunks:
-        vector_store = get_vector_store(all_text_chunks, all_metadata_chunks)
-        st.session_state.docs_processed = True  # Flag that documents are processed
-        return vector_store
-    else:
-        st.error("No text found in uploaded documents.")
-        st.session_state.docs_processed = False
-        return None
 
 def get_text_chunks(text, metadata):
     text_splitter = RecursiveCharacterTextSplitter(
@@ -348,8 +323,6 @@ def main():
             accept_multiple_files=True,
             type=['pdf', 'csv', 'xlsx', 'xls', 'pptx', 'docx', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff']
         )
-        if uploaded_files and not st.session_state.docs_processed:
-            vector_store = process_documents(uploaded_files)
 
         if st.button("Submit & Process"):
             if uploaded_files:
