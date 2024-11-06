@@ -329,9 +329,6 @@ def main():
                 st.session_state.user_context = {}
                 st.success("Context cleared!")
         
-        # Show current context
-        st.write("Current User Context:")
-        st.write(st.session_state.user_context)
 
     # Main chat interface
     user_question = st.chat_input("Ask a question about your documents")
