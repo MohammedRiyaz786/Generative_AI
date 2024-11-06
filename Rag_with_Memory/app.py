@@ -1,4 +1,5 @@
 import streamlit as st
+import re
 import logging
 from utils import (
     get_pdf_text, 
