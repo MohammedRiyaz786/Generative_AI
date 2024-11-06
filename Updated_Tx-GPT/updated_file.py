@@ -205,17 +205,33 @@ def create_qa_chain() -> Optional[ConversationalRetrievalChain]:
         )
 
         llm = Ollama(model="llama3.1", temperature=0.1)
-        
+
+        def get_chat_history(inputs) -> str:
+            chat_history = inputs.get("chat_history", [])
+            buffer = ""
+            for message in chat_history:
+                human = message[0]
+                ai = message[1]
+                buffer += f"Human: {human}\nAssistant: {ai}\n"
+            return buffer
+
         chain = ConversationalRetrievalChain.from_llm(
             llm=llm,
             retriever=retriever,
             memory=st.session_state.memory,
-            combine_docs_chain_kwargs={
-                "prompt": PROMPT,
-                "additional_kwargs": {"user_context": str(st.session_state.user_context)}
-            },
+            get_chat_history=get_chat_history,
+            combine_docs_chain_kwargs={"prompt": PROMPT},
             return_source_documents=True
         )
+        
+        # Modify the chain's __call__ method to include user_context
+        original_call = chain.__call__
+
+        def new_call(inputs, *args, **kwargs):
+            inputs["user_context"] = str(st.session_state.user_context)
+            return original_call(inputs, *args, **kwargs)
+
+        chain.__call__ = new_call
         
         logging.info("QA chain created successfully")
         return chain
