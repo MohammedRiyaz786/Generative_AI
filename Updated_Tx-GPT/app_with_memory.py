@@ -1,4 +1,5 @@
 import streamlit as st
+import re
 import logging
 from utils import (
     get_pdf_text, 
@@ -115,62 +116,22 @@ def get_vector_store(text_chunks, metadata_chunks):
     return vector_store
 
 def create_qa_chain():
-    prompt_template = """You are a direct and efficient AI assistant.
+    prompt_template = """You are a helpful AI assistant. Answer questions based on the provided context and chat history.
 
-    IF the user's message matches ANY of these patterns:
-    - "Hi", "Hello", "Hey", "Hii", "Hola" (just greeting)
-    - "My name is [any name]"
-    - "I am [any name]"
-    - "[any greeting] my name is [any name]"
-    - "[any greeting] I am [any name]"
-    THEN respond only with: "Hello! How can I help you today?"
-
-    OTHERWISE:
-    1. Use only the provided information:
-    - Context: {context}
-    - Chat History: {chat_history}
-    - Current Question: {question}
-
-    2. Your response must be:
-    - Direct and to-the-point
-    - Based only on given context and history
-    - Without any explanations about your capabilities
-    - Without mentioning sources or references
+    Rules:
+    1. If the question is a greeting or name introduction, respond with EXACTLY "Hello! How can I help you today?"
+    2. For other questions:
+       - Use ONLY the provided context and chat history
+       - If the answer isn't in the context or history, say "I don't have enough information to answer this question."
+       - Never repeat the previous answer unless it's actually relevant
+       - Be concise and direct
     
-    3. If the answer cannot be found in context or history:
-    Response should be only: "I don't have enough information to answer this question."
-
-    4. Never start responses with:
-    - "Based on..."
-    - "According to..."
-    - "I understand..."
-    - "Let me..."
-
-    5. Never end responses with:
-    - "Is there anything else..."
-    - "Let me know if..."
-    - "Feel free to..."
-
-    Question: {question}"""
-    # prompt_template = """
-    # You are an AI assistant tasked with answering questions based on the given context and chat history. 
-    # Provide a concise and point-to-point answer without mentioning sources or slides.
-
-    # System Instructions (Previous conversation context):
-    # {chat_history}
-
-    # Current context: {context}
-
-    # Question: {question}
-
-    # Instructions:
-    # 1. Consider both the chat history and current context when forming your answer
-    # 2. Provide a specific and concise answer to the question
-    # 3. If referencing previous questions or answers, be explicit about what you're referring to
-    # 4. If the answer requires information from both the history and current context, combine them appropriately
-    # 5. If you cannot find the answer in either the history or current context, respond: "I don't have enough information to answer this question."
-    # 6. Do not mention sources, slide numbers, or file names in your response
-    # """
+    
+    Context: {context}
+    Chat History: {chat_history}
+    Current Question: {question}
+    
+    Answer: """
 
     PROMPT = PromptTemplate(
         template=prompt_template,
@@ -178,13 +139,13 @@ def create_qa_chain():
     )
 
     llm = Ollama(model="llama3.1", temperature=0.1)
-
+    
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vectorstore = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
     
     retriever = vectorstore.as_retriever(
         search_type="mmr",
-        search_kwargs={"k": 5, "fetch_k": 20}
+        search_kwargs={"k": 3, "fetch_k": 10}  
     )
 
     qa_chain = ConversationalRetrievalChain.from_llm(
@@ -192,39 +153,177 @@ def create_qa_chain():
         retriever=retriever,
         memory=st.session_state.memory,
         combine_docs_chain_kwargs={"prompt": PROMPT},
-        return_source_documents=True
+        return_source_documents=True,
+        verbose=True  
     )
     
     return qa_chain
 
+# def create_qa_chain():
+#     prompt_template = """You are a direct and efficient AI assistant.
+
+#     IF the user's message matches ANY of these patterns:
+#     - "Hi", "Hello", "Hey", "Hii", "Hola" (just greeting)
+#     - "My name is [any name]"
+#     - "I am [any name]"
+#     - "[any greeting] my name is [any name]"
+#     - "[any greeting] I am [any name]"
+#     THEN respond only with: "Hello! How can I help you today?"
+
+#     OTHERWISE:
+#     1. Use only the provided information:
+#     - Context: {context}
+#     - Chat History: {chat_history}
+#     - Current Question: {question}
+
+#     2. Your response must be:
+#     - Direct and to-the-point
+#     - Based only on given context and history
+#     - Without any explanations about your capabilities
+#     - Without mentioning sources or references
+    
+#     3. If the answer cannot be found in context or history:
+#     Response should be only: "I don't have enough information to answer this question."
+
+    # 4. Never start responses with:
+    # - "Based on..."
+    # - "According to..."
+    # - "I understand..."
+    # - "Let me..."
+
+    # 5. Never end responses with:
+    # - "Is there anything else..."
+    # - "Let me know if..."
+    # - "Feel free to..."
+
+#     Question: {question}"""
+#     # prompt_template = """
+#     # You are an AI assistant tasked with answering questions based on the given context and chat history. 
+#     # Provide a concise and point-to-point answer without mentioning sources or slides.
+
+#     # System Instructions (Previous conversation context):
+#     # {chat_history}
+
+#     # Current context: {context}
+
+#     # Question: {question}
+
+#     # Instructions:
+#     # 1. Consider both the chat history and current context when forming your answer
+#     # 2. Provide a specific and concise answer to the question
+#     # 3. If referencing previous questions or answers, be explicit about what you're referring to
+#     # 4. If the answer requires information from both the history and current context, combine them appropriately
+#     # 5. If you cannot find the answer in either the history or current context, respond: "I don't have enough information to answer this question."
+#     # 6. Do not mention sources, slide numbers, or file names in your response
+#     # """
+
+#     PROMPT = PromptTemplate(
+#         template=prompt_template,
+#         input_variables=["context", "question", "chat_history"]
+#     )
+
+#     llm = Ollama(model="llama3.1", temperature=0.1)
+
+#     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+#     vectorstore = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
+    
+#     retriever = vectorstore.as_retriever(
+#         search_type="mmr",
+#         search_kwargs={"k": 5, "fetch_k": 20}
+#     )
+
+#     qa_chain = ConversationalRetrievalChain.from_llm(
+#         llm=llm,
+#         retriever=retriever,
+#         memory=st.session_state.memory,
+#         combine_docs_chain_kwargs={"prompt": PROMPT},
+#         return_source_documents=True
+#     )
+    
+#     return qa_chain
+
 def handle_user_input(user_question):
     try:
         logging.info(f"User question: {user_question}")
-
-        qa_chain = create_qa_chain()
         
-        response = qa_chain({"question": user_question})
+        # Check for greeting patterns
+        greeting_patterns = [
+            r'^hi$', r'^hello$', r'^hey$', r'^hii$', r'^hola$',
+            r'^my name is .+$', r'^i am .+$',
+            r'^(hi|hello|hey|hii|hola),?\s*(my name is|i am)\s+.+$'
+        ]
         
-        answer = response.get('answer', '').strip()
-        if not answer:
-            answer = "I don't have enough information to answer this question."
+        if any(re.match(pattern, user_question.lower()) for pattern in greeting_patterns):
+            answer = "Hello! How can I help you today?"
+        else:
+            qa_chain = create_qa_chain()
+            response = qa_chain({"question": user_question})
+            answer = response.get('answer', '').strip()
+            
+            # Validate the answer
+            if not answer or answer == response.get('chat_history', ''):
+                answer = "I don't have enough information to answer this question."
         
-        
+        # Update conversation state
         if 'conversation' not in st.session_state:
             st.session_state.conversation = []
-        st.session_state.conversation.append({"user": user_question, "assistant": answer})
         
+        # Add the new QA pair
+        st.session_state.conversation.append({
+            "user": user_question,
+            "assistant": answer
+        })
         
+        # Display the entire conversation history
         for message in st.session_state.conversation:
             with st.chat_message("user"):
                 st.write(message["user"])
             with st.chat_message("assistant"):
                 st.write(message["assistant"])
-        
+                
     except Exception as e:
         logging.error(f"Error: {str(e)}")
         st.error(f"An error occurred: {str(e)}")
         st.write("Reply: I'm sorry, but I encountered an error while processing your question.")
+
+# Update the ConversationBufferMemory initialization
+if 'memory' not in st.session_state:
+    st.session_state.memory = ConversationBufferMemory(
+        memory_key="chat_history",
+        return_messages=True,
+        output_key='answer',
+        human_prefix="Human",
+        ai_prefix="Assistant"
+    )
+
+# def handle_user_input(user_question):
+#     try:
+#         logging.info(f"User question: {user_question}")
+
+#         qa_chain = create_qa_chain()
+        
+#         response = qa_chain({"question": user_question})
+        
+#         answer = response.get('answer', '').strip()
+#         if not answer:
+#             answer = "I don't have enough information to answer this question."
+        
+        
+#         if 'conversation' not in st.session_state:
+#             st.session_state.conversation = []
+#         st.session_state.conversation.append({"user": user_question, "assistant": answer})
+        
+        
+#         for message in st.session_state.conversation:
+#             with st.chat_message("user"):
+#                 st.write(message["user"])
+#             with st.chat_message("assistant"):
+#                 st.write(message["assistant"])
+        
+#     except Exception as e:
+#         logging.error(f"Error: {str(e)}")
+#         st.error(f"An error occurred: {str(e)}")
+#         st.write("Reply: I'm sorry, but I encountered an error while processing your question.")
 
 def main():
     st.set_page_config(page_title="Chat with Documents and Images")
