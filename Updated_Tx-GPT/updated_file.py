@@ -24,15 +24,19 @@ import torch
 import re
 from typing import Dict, List, Optional, Tuple
 
-# Configure logging
+# Configure logging with more detailed output
 logging.basicConfig(
-    filename='app2.log.txt',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    filename='app_log2.txt',
+    level=logging.DEBUG,  # Changed to DEBUG for more detailed logs
+    format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(message)s'
 )
 
-# Initialize session states
+# Global variable to track if documents are processed
+if 'docs_processed' not in st.session_state:
+    st.session_state.docs_processed = False
+
 def init_session_state():
+    """Initialize session state variables"""
     if 'memory' not in st.session_state:
         st.session_state.memory = ConversationBufferMemory(
             memory_key="chat_history",
@@ -43,108 +47,134 @@ def init_session_state():
         st.session_state.conversation = []
     if 'user_context' not in st.session_state:
         st.session_state.user_context = {}
-    if 'vector_store' not in st.session_state:
-        st.session_state.vector_store = None
+    if 'vector_store_path' not in st.session_state:
+        st.session_state.vector_store_path = "faiss_index"
 
 def extract_file_content(uploaded_file) -> Tuple[str, List[Document]]:
-    """Extract content from uploaded files"""
-    file_type = uploaded_file.name.split('.')[-1].lower()
-    image_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff'}
-    
+    """Extract content from uploaded files with enhanced error checking"""
     try:
+        file_type = uploaded_file.name.split('.')[-1].lower()
+        logging.info(f"Processing file: {uploaded_file.name} of type: {file_type}")
+        
+        image_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff'}
+        
         if file_type in image_extensions:
-            return process_image(uploaded_file)
+            text, docs = process_image(uploaded_file)
+            logging.info(f"Processed image with text length: {len(text) if text else 0}")
+            return text, docs
+            
         elif file_type == 'pdf':
             tabular_text, tabular_docs = get_pdf_text([uploaded_file])
             non_tabular_text, non_tabular_docs = get_non_table_pdf_text([uploaded_file])
-            return tabular_text + non_tabular_text, tabular_docs + non_tabular_docs
+            combined_text = (tabular_text or "") + (non_tabular_text or "")
+            combined_docs = (tabular_docs or []) + (non_tabular_docs or [])
+            logging.info(f"Processed PDF with text length: {len(combined_text)}")
+            return combined_text, combined_docs
+            
         elif file_type == 'csv':
             text = get_csv_text(uploaded_file)
-            return text, [Document(page_content=text, metadata={'source': uploaded_file.name})]
+            docs = [Document(page_content=text, metadata={'source': uploaded_file.name})]
+            logging.info(f"Processed CSV with text length: {len(text)}")
+            return text, docs
+            
         elif file_type in ['xls', 'xlsx']:
-            return get_excel_text([uploaded_file])
+            text, docs = get_excel_text([uploaded_file])
+            logging.info(f"Processed Excel with text length: {len(text)}")
+            return text, docs
+            
         elif file_type in ['pptx']:
-            return get_ppt_text([uploaded_file])
+            text, docs = get_ppt_text([uploaded_file])
+            logging.info(f"Processed PowerPoint with text length: {len(text)}")
+            return text, docs
+            
         elif file_type in ['doc', 'docx']:
-            return get_word_text([uploaded_file])
+            text, docs = get_word_text([uploaded_file])
+            logging.info(f"Processed Word with text length: {len(text)}")
+            return text, docs
+            
         else:
             raise ValueError(f"Unsupported file format: {file_type}")
+            
     except Exception as e:
-        logging.error(f"Error processing file {uploaded_file.name}: {str(e)}")
+        logging.error(f"Error processing file {uploaded_file.name}: {str(e)}", exc_info=True)
         raise
 
 def process_documents(uploaded_files) -> bool:
-    """Process uploaded documents and create vector store"""
+    """Process uploaded documents and create vector store with enhanced error checking"""
     try:
+        if not uploaded_files:
+            logging.warning("No files uploaded")
+            return False
+            
+        logging.info(f"Starting to process {len(uploaded_files)} documents")
         all_text_chunks = []
         all_metadata_chunks = []
         
         for uploaded_file in uploaded_files:
-            raw_text, docs = extract_file_content(uploaded_file)
-            if raw_text.strip() and docs:
-                text_splitter = RecursiveCharacterTextSplitter(
-                    chunk_size=500,
-                    chunk_overlap=50,
-                    separators=["\n\n", "\n", ". ", " ", ""]
-                )
+            try:
+                raw_text, docs = extract_file_content(uploaded_file)
+                if raw_text and docs:
+                    text_splitter = RecursiveCharacterTextSplitter(
+                        chunk_size=500,
+                        chunk_overlap=50,
+                        separators=["\n\n", "\n", ". ", " ", ""]
+                    )
+                    
+                    for doc in docs:
+                        chunks = text_splitter.split_text(doc.page_content)
+                        metadata = [{'source': uploaded_file.name} for _ in chunks]
+                        all_text_chunks.extend(chunks)
+                        all_metadata_chunks.extend(metadata)
+                        
+                    logging.info(f"Processed {uploaded_file.name}: {len(chunks)} chunks created")
+                else:
+                    logging.warning(f"No content extracted from {uploaded_file.name}")
+                    
+            except Exception as e:
+                logging.error(f"Error processing {uploaded_file.name}: {str(e)}", exc_info=True)
+                continue
                 
-                for doc in docs:
-                    chunks = text_splitter.split_text(doc.page_content)
-                    metadata = [{'source': uploaded_file.name} for _ in chunks]
-                    all_text_chunks.extend(chunks)
-                    all_metadata_chunks.extend(metadata)
-        
-        if all_text_chunks:
-            embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            embeddings.client.to(device)
+        if not all_text_chunks:
+            logging.warning("No text chunks created from any documents")
+            return False
             
-            vector_store = FAISS.from_texts(
-                texts=all_text_chunks,
-                embedding=embeddings,
-                metadatas=all_metadata_chunks
-            )
-            vector_store.save_local("faiss_index")
-            st.session_state.vector_store = vector_store
-            return True
-        return False
+        logging.info(f"Creating vector store with {len(all_text_chunks)} chunks")
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        embeddings.client.to(device)
+        
+        vector_store = FAISS.from_texts(
+            texts=all_text_chunks,
+            embedding=embeddings,
+            metadatas=all_metadata_chunks
+        )
+        
+        # Save vector store
+        vector_store.save_local(st.session_state.vector_store_path)
+        st.session_state.docs_processed = True
+        logging.info("Vector store created and saved successfully")
+        return True
+        
     except Exception as e:
-        logging.error(f"Error in process_documents: {str(e)}")
+        logging.error(f"Error in process_documents: {str(e)}", exc_info=True)
         return False
 
 def create_qa_chain() -> Optional[ConversationalRetrievalChain]:
-    """Create the QA chain with the vector store"""
+    """Create the QA chain with enhanced error checking"""
     try:
-        if not os.path.exists("faiss_index"):
+        if not os.path.exists(st.session_state.vector_store_path):
+            logging.error("Vector store path does not exist")
             return None
             
-        prompt_template = """
-        Context: {context}
-        Chat History: {chat_history}
-        User Context: {user_context}
-        Current Question: {question}
-
-        Instructions:
-        1. If the question is a greeting or name introduction, respond naturally
-        2. If asking about user information (like name), use the user context
-        3. For other questions, use only the provided context and chat history
-        4. If information isn't available, say "I don't have enough information to answer this question."
-        5. Be concise and direct in your response
-        6. Don't mention sources or references
-
-        Question: {question}
-        """
-
-        PROMPT = PromptTemplate(
-            template=prompt_template,
-            input_variables=["context", "chat_history", "question", "user_context"]
-        )
-
-        llm = Ollama(model="llama3.1", temperature=0.1)
+        if not st.session_state.docs_processed:
+            logging.error("Documents not processed yet")
+            return None
+            
+        logging.info("Creating QA chain")
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         
         vector_store = FAISS.load_local(
-            "faiss_index",
+            st.session_state.vector_store_path,
             embeddings,
             allow_dangerous_deserialization=True
         )
@@ -153,8 +183,30 @@ def create_qa_chain() -> Optional[ConversationalRetrievalChain]:
             search_type="mmr",
             search_kwargs={"k": 3, "fetch_k": 10}
         )
+        
+        template = """
+        Context: {context}
+        Chat History: {chat_history}
+        User Context: {user_context}
+        Question: {question}
 
-        return ConversationalRetrievalChain.from_llm(
+        Instructions:
+        1. Use the provided context to answer the question
+        2. If the answer isn't in the context, say "I don't have enough information to answer this question"
+        3. Be concise and direct
+        4. Don't mention sources
+
+        Answer the question: {question}
+        """
+
+        PROMPT = PromptTemplate(
+            template=template,
+            input_variables=["context", "chat_history", "question", "user_context"]
+        )
+
+        llm = Ollama(model="llama3.1", temperature=0.1)
+        
+        chain = ConversationalRetrievalChain.from_llm(
             llm=llm,
             retriever=retriever,
             memory=st.session_state.memory,
@@ -164,37 +216,47 @@ def create_qa_chain() -> Optional[ConversationalRetrievalChain]:
             },
             return_source_documents=True
         )
+        
+        logging.info("QA chain created successfully")
+        return chain
+        
     except Exception as e:
-        logging.error(f"Error in create_qa_chain: {str(e)}")
+        logging.error(f"Error in create_qa_chain: {str(e)}", exc_info=True)
         return None
 
 def handle_user_input(user_question: str):
-    """Handle user input and generate responses"""
+    """Handle user input with enhanced error checking"""
     try:
-        # Update user context for name-related inputs
-        name_match = re.match(r"(?i)my name is (\w+)", user_question)
-        if name_match:
-            st.session_state.user_context['name'] = name_match.group(1)
-            response = f"Hello {name_match.group(1)}! How can I help you today?"
+        logging.info(f"Processing user question: {user_question}")
         
-        # Handle name questions
-        elif re.match(r"(?i)what('s| is) my name\??", user_question):
-            response = f"Your name is {st.session_state.user_context.get('name', 'not mentioned yet')}."
-        
-        # Handle greetings
-        elif re.match(r"(?i)^(hi|hello|hey)$", user_question):
+        # Handle basic greeting
+        if re.match(r"^(?i)(hi|hello|hey)$", user_question):
             response = "Hello! How can I help you today?"
-        
-        # Handle other questions using RAG
+            
+        # Handle name introduction
+        elif name_match := re.match(r"(?i)my name is (\w+)", user_question):
+            name = name_match.group(1)
+            st.session_state.user_context['name'] = name
+            response = f"Hello {name}! How can I help you today?"
+            
+        # Handle name question
+        elif re.match(r"(?i)what('s| is) my name\??", user_question):
+            name = st.session_state.user_context.get('name')
+            response = f"Your name is {name}." if name else "You haven't told me your name yet."
+            
+        # Handle document-based questions
         else:
-            qa_chain = create_qa_chain()
-            if qa_chain is None:
-                response = "I'm having trouble accessing the document knowledge base. Please make sure documents are processed."
+            if not st.session_state.docs_processed:
+                response = "Please upload and process some documents first."
             else:
-                result = qa_chain({"question": user_question})
-                response = result.get('answer', '').strip()
-                if not response:
-                    response = "I don't have enough information to answer this question."
+                qa_chain = create_qa_chain()
+                if qa_chain is None:
+                    response = "I'm having trouble accessing the document knowledge base. Please make sure documents are processed."
+                else:
+                    result = qa_chain({"question": user_question})
+                    response = result.get('answer', '').strip()
+                    if not response:
+                        response = "I don't have enough information to answer this question."
         
         # Update conversation
         st.session_state.conversation.append({
@@ -210,41 +272,56 @@ def handle_user_input(user_question: str):
                 st.write(message["assistant"])
                 
     except Exception as e:
-        logging.error(f"Error in handle_user_input: {str(e)}")
+        logging.error(f"Error in handle_user_input: {str(e)}", exc_info=True)
         st.error("An error occurred while processing your question.")
 
 def main():
-    st.set_page_config(page_title="Chat with Documents and Images", layout="wide")
-    init_session_state()
-    
-    st.header("Chat with Documents and Images using LLAMA3 🦙")
-    
-    with st.sidebar:
-        st.title("Document Processing")
-        uploaded_files = st.file_uploader(
-            "Upload documents or images",
-            accept_multiple_files=True,
-            type=['pdf', 'csv', 'xlsx', 'xls', 'pptx', 'docx', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff']
-        )
+    try:
+        st.set_page_config(page_title="Chat with Documents and Images", layout="wide")
+        init_session_state()
         
-        if st.button("Process Documents"):
-            if uploaded_files:
-                with st.spinner("Processing documents..."):
-                    if process_documents(uploaded_files):
-                        st.success("Documents processed successfully!")
-                    else:
-                        st.error("No content could be extracted from the files.")
-            else:
-                st.warning("Please upload files before processing.")
+        st.header("Chat with Documents and Images using LLAMA3 🦙")
         
-        if st.button("Clear Conversation"):
-            st.session_state.memory.clear()
-            st.session_state.conversation = []
-            st.success("Conversation cleared!")
-    
-    user_question = st.chat_input("Ask a question about your documents")
-    if user_question:
-        handle_user_input(user_question)
+        # Sidebar
+        with st.sidebar:
+            st.title("Document Processing")
+            
+            # File uploader
+            uploaded_files = st.file_uploader(
+                "Upload documents or images",
+                accept_multiple_files=True,
+                type=['pdf', 'csv', 'xlsx', 'xls', 'pptx', 'docx', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff']
+            )
+            
+            # Process button
+            if st.button("Process Documents"):
+                if uploaded_files:
+                    with st.spinner("Processing documents..."):
+                        if process_documents(uploaded_files):
+                            st.success("Documents processed successfully!")
+                        else:
+                            st.error("Error processing documents. Check logs for details.")
+                else:
+                    st.warning("Please upload files before processing.")
+            
+            # Clear button
+            if st.button("Clear Conversation"):
+                st.session_state.memory.clear()
+                st.session_state.conversation = []
+                st.success("Conversation cleared!")
+            
+            # Status indicator
+            st.write("Status:")
+            st.write(f"Documents Processed: {'✅' if st.session_state.docs_processed else '❌'}")
+        
+        # Chat interface
+        user_question = st.chat_input("Ask a question about your documents")
+        if user_question:
+            handle_user_input(user_question)
+            
+    except Exception as e:
+        logging.error(f"Error in main: {str(e)}", exc_info=True)
+        st.error("An error occurred in the application. Please check the logs.")
 
 if __name__ == "__main__":
     main()
