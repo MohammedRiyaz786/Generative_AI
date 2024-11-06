@@ -194,7 +194,7 @@ def init_session_state():
     if 'vector_store_path' not in st.session_state:
         st.session_state.vector_store_path = "faiss_index"
     if 'docs_processed' not in st.session_state:
-        st.session_state.docs_processed = False
+        st.session_state.docs_processed = True
 
 def handle_user_input(user_question: str):
     """Handle user input with enhanced error handling, logging, and better conversation handling"""
