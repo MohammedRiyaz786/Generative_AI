@@ -307,6 +307,7 @@ def handle_conversation(text: str) -> str:
 def main():
     st.set_page_config(page_title="Chat with Documents and Images")
     st.header("Chat with Documents and Images using LLAMA3🦙")
+    init_session_state()
 
     
     if st.sidebar.button("Clear Conversation"):
