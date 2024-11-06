@@ -160,7 +160,7 @@ def process_documents(uploaded_files) -> bool:
         return False
 
 def create_qa_chain() -> Optional[ConversationalRetrievalChain]:
-    """Create the QA chain with enhanced error checking"""
+    """Create the QA chain with enhanced error handling and logging"""
     try:
         if not os.path.exists(st.session_state.vector_store_path):
             logging.error("Vector store path does not exist")
@@ -207,13 +207,18 @@ def create_qa_chain() -> Optional[ConversationalRetrievalChain]:
         llm = Ollama(model="llama3.1", temperature=0.1)
 
         def get_chat_history(inputs) -> str:
-            chat_history = inputs.get("chat_history", [])
-            buffer = ""
-            for message in chat_history:
-                human = message[0]
-                ai = message[1]
-                buffer += f"Human: {human}\nAssistant: {ai}\n"
-            return buffer
+            try:
+                chat_history = inputs.get("chat_history", [])
+                buffer = ""
+                for message in chat_history:
+                    if isinstance(message, tuple) and len(message) == 2:
+                        human, ai = message
+                        buffer += f"Human: {human}\nAssistant: {ai}\n"
+                logging.debug(f"Processed chat history: {buffer}")
+                return buffer
+            except Exception as e:
+                logging.error(f"Error in get_chat_history: {str(e)}", exc_info=True)
+                return ""
 
         chain = ConversationalRetrievalChain.from_llm(
             llm=llm,
@@ -221,15 +226,19 @@ def create_qa_chain() -> Optional[ConversationalRetrievalChain]:
             memory=st.session_state.memory,
             get_chat_history=get_chat_history,
             combine_docs_chain_kwargs={"prompt": PROMPT},
-            return_source_documents=True
+            return_source_documents=True,
+            verbose=True  # Enable verbose mode for debugging
         )
         
-        # Modify the chain's __call__ method to include user_context
-        original_call = chain.__call__
-
         def new_call(inputs, *args, **kwargs):
-            inputs["user_context"] = str(st.session_state.user_context)
-            return original_call(inputs, *args, **kwargs)
+            try:
+                logging.debug(f"Chain inputs before modification: {inputs}")
+                inputs["user_context"] = str(st.session_state.user_context)
+                logging.debug(f"Chain inputs after modification: {inputs}")
+                return chain._call(inputs, *args, **kwargs)
+            except Exception as e:
+                logging.error(f"Error in chain call: {str(e)}", exc_info=True)
+                raise
 
         chain.__call__ = new_call
         
@@ -241,7 +250,7 @@ def create_qa_chain() -> Optional[ConversationalRetrievalChain]:
         return None
 
 def handle_user_input(user_question: str):
-    """Handle user input with enhanced error checking"""
+    """Handle user input with enhanced error handling and logging"""
     try:
         logging.info(f"Processing user question: {user_question}")
         
@@ -269,10 +278,16 @@ def handle_user_input(user_question: str):
                 if qa_chain is None:
                     response = "I'm having trouble accessing the document knowledge base. Please make sure documents are processed."
                 else:
-                    result = qa_chain({"question": user_question})
-                    response = result.get('answer', '').strip()
-                    if not response:
-                        response = "I don't have enough information to answer this question."
+                    logging.debug("Calling QA chain with question: %s", user_question)
+                    try:
+                        result = qa_chain({"question": user_question})
+                        logging.debug("QA chain result: %s", result)
+                        response = result.get('answer', '').strip()
+                        if not response:
+                            response = "I don't have enough information to answer this question."
+                    except Exception as chain_error:
+                        logging.error("Error in QA chain execution: %s", str(chain_error), exc_info=True)
+                        raise
         
         # Update conversation
         st.session_state.conversation.append({
@@ -289,7 +304,7 @@ def handle_user_input(user_question: str):
                 
     except Exception as e:
         logging.error(f"Error in handle_user_input: {str(e)}", exc_info=True)
-        st.error("An error occurred while processing your question.")
+        st.error(f"An error occurred while processing your question: {str(e)}")
 
 def main():
     try:
