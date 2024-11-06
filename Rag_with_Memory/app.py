@@ -1,7 +1,4 @@
 import streamlit as st
-# Set page config as the first Streamlit command
-st.set_page_config(page_title="Chat with Documents and Images", layout="wide")
-
 import logging
 from utils import (
     get_pdf_text, 
@@ -25,16 +22,28 @@ from langchain.memory import ConversationBufferMemory
 import torch
 from PIL import Image
 import io
+import cv2
 import numpy as np
+import pytesseract
+import easyocr
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 
-# Setup logger
+
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+if 'memory' not in st.session_state:
+    st.session_state.memory = ConversationBufferMemory(
+        memory_key="chat_history",
+        return_messages=True,
+        output_key='answer'
+    )
 
 def extract_file_content(uploaded_file):
     file_type = uploaded_file.name.split('.')[-1].lower()
     
-    # Handle different file types
+    
     image_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff'}
     
     try:
@@ -101,31 +110,48 @@ def get_vector_store(text_chunks, metadata_chunks):
             vector_store = FAISS.from_texts(batch_texts, embedding=embeddings, metadatas=batch_metadata)
         else:
             vector_store.add_texts(batch_texts, metadatas=batch_metadata)
-
+    
     vector_store.save_local("faiss_index")
     return vector_store
 
 def create_qa_chain():
-    prompt_template = """
-    You are an AI assistant tasked with answering questions based on the given context and chat history. 
-    Provide a concise and point-to-point answer without mentioning sources or slides.
+    prompt_template = """You are a direct and efficient AI assistant.
 
-    Chat History: {chat_history}
-    Context: {context}
-    Question: {question}
+    IF the user's message matches ANY of these patterns:
+    - "Hi", "Hello", "Hey", "Hii", "Hola" (just greeting)
+    - "My name is [any name]"
+    - "I am [any name]"
+    - "[any greeting] my name is [any name]"
+    - "[any greeting] I am [any name]"
+    THEN respond only with: "Hello! How can I help you today?"
 
-    Instructions:
-    1. Consider both the chat history and current context when formulating your answer.
-    2. If referring to information from previous exchanges, be explicit about the connection.
-    3. Provide a specific and concise answer to the question.
-    4. If the context contains tables, structured data, or information from images, extract only the relevant information.
-    5. Maintain the structure of bullet points or lists if present in the relevant information.
-    6. Include mathematical formulas if relevant, using LaTeX notation.
-    7. If you encounter text that appears to be from an image, interpret it in context.
-    8. For tabular data from images, present it in a clear, structured format.
-    9. If the answer is not in the context or chat history, respond: "I don't have enough information to answer this question."
-    10. Do not mention sources, slide numbers, or any metadata in your answer.
-    """
+    OTHERWISE:
+    1. Use only the provided information:
+    - Context: {context}
+    - Chat History: {chat_history}
+    - Current Question: {question}
+
+    2. Your response must be:
+    - Direct and to-the-point
+    - Based only on given context and history
+    - Without any explanations about your capabilities
+    - Without mentioning sources or references
+    
+    3. If the answer cannot be found in context or history:
+    Response should be only: "I don't have enough information to answer this question."
+
+    4. Never start responses with:
+    - "Based on..."
+    - "According to..."
+    - "I understand..."
+    - "Let me..."
+
+    5. Never end responses with:
+    - "Is there anything else..."
+    - "Let me know if..."
+    - "Feel free to..."
+
+    Question: {question}"""
 
     PROMPT = PromptTemplate(
         template=prompt_template,
@@ -142,65 +168,130 @@ def create_qa_chain():
         search_kwargs={"k": 5, "fetch_k": 20}
     )
 
-    memory = ConversationBufferMemory(
-        memory_key="chat_history",
-        return_messages=True,
-        output_key='answer'
-    )
-
     qa_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=retriever,
-        memory=memory,
+        memory=st.session_state.memory,
         combine_docs_chain_kwargs={"prompt": PROMPT},
-        return_source_documents=True,
-        return_generated_question=True
+        return_source_documents=True
     )
     
     return qa_chain
 
-def handle_user_input(user_question):
+def handle_user_input(user_question: str):
+    """Handle user input with enhanced error handling, logging, and better conversation handling"""
     try:
-        logging.info(f"User question: {user_question}")
-
-        if 'qa_chain' not in st.session_state:
-            st.session_state.qa_chain = create_qa_chain()
-
-        response = st.session_state.qa_chain({
-            "question": user_question
+        logging.info(f"Processing user question: {user_question}")
+        
+        # Handle basic greeting and conversation patterns
+        if re.match(r"^(?i)(hi|hello|hey)$", user_question):
+            response = "Hello! How can I help you today?"
+            
+        # Handle name introduction
+        elif name_match := re.match(r"(?i)my name is (\w+)", user_question):
+            name = name_match.group(1)
+            st.session_state.user_context['name'] = name
+            response = f"Hello {name}! How can I help you today?"
+            # Skip the QA chain for conversational inputs
+            
+        # Handle name question
+        elif re.match(r"(?i)what('s| is) my name\??", user_question):
+            name = st.session_state.user_context.get('name')
+            response = f"Your name is {name}." if name else "You haven't told me your name yet."
+            # Skip the QA chain for conversational inputs
+            
+        # Handle document-based questions
+        else:
+            if not st.session_state.docs_processed:
+                response = "Please upload and process some documents first."
+            else:
+                qa_chain = create_qa_chain()
+                if qa_chain is None:
+                    response = "I'm having trouble accessing the document knowledge base. Please make sure documents are processed."
+                else:
+                    logging.debug("Calling QA chain with question: %s", user_question)
+                    try:
+                        # Only use QA chain for actual questions, not conversational inputs
+                        if not is_conversational_input(user_question):
+                            result = qa_chain({"question": user_question})
+                            logging.debug("QA chain result: %s", result)
+                            response = result.get('answer', '').strip()
+                            if not response:
+                                response = "I don't have enough information to answer this question."
+                        else:
+                            response = handle_conversation(user_question)
+                    except Exception as chain_error:
+                        logging.error("Error in QA chain execution: %s", str(chain_error), exc_info=True)
+                        raise
+        
+        # Update conversation
+        st.session_state.conversation.append({
+            "user": user_question,
+            "assistant": response
         })
-
-        answer = response.get('answer', '').strip()
-        if not answer:
-            answer = "I don't have enough information to answer this question."
         
-        st.write("Reply: ", answer)
-
-        if 'chat_history' not in st.session_state:
-            st.session_state.chat_history = []
-        
-        st.session_state.chat_history.append(("You", user_question))
-        st.session_state.chat_history.append(("Assistant", answer))
-
-        st.write("\nChat History:")
-        for role, message in reversed(st.session_state.chat_history[:-2]):
-            st.write(f"{role}: {message}")
-        
+        # Display conversation
+        for message in st.session_state.conversation:
+            with st.chat_message("user", avatar="🧑"):
+                st.write(message["user"])
+            with st.chat_message("assistant", avatar="🤖"):
+                st.write(message["assistant"])
+                
     except Exception as e:
-        logging.error(f"Error: {str(e)}")
-        st.error(f"An error occurred: {str(e)}")
-        st.write("Reply: I'm sorry, but I encountered an error while processing your question.")
+        logging.error(f"Error in handle_user_input: {str(e)}", exc_info=True)
+        st.error(f"An error occurred while processing your question: {str(e)}")
+
+def is_conversational_input(text: str) -> bool:
+    """Determine if the input is conversational rather than a question about documents"""
+    conversational_patterns = [
+        r"(?i)my name is \w+",
+        r"(?i)^(hi|hello|hey)$",
+        r"(?i)what('s| is) my name\??",
+        r"(?i)^(thanks|thank you|bye|goodbye)$",
+        r"(?i)^(yes|no|maybe)$",
+        r"(?i)^(good morning|good afternoon|good evening)$",
+        r"(?i)how are you",
+        r"(?i)nice to meet you"
+    ]
+    
+    return any(re.match(pattern, text.strip()) for pattern in conversational_patterns)
+
+def handle_conversation(text: str) -> str:
+    """Handle conversational inputs that don't require document knowledge"""
+    # Get user's name from context if available
+    user_name = st.session_state.user_context.get('name', '')
+    
+    # Handle different types of conversational inputs
+    text_lower = text.lower().strip()
+    
+    if "how are you" in text_lower:
+        return f"I'm doing well{', ' + user_name if user_name else ''}! How can I help you today?"
+    
+    elif any(word in text_lower for word in ["thanks", "thank you"]):
+        return f"You're welcome{', ' + user_name if user_name else ''}! Let me know if you need anything else."
+    
+    elif any(word in text_lower for word in ["bye", "goodbye"]):
+        return f"Goodbye{', ' + user_name if user_name else ''}! Have a great day!"
+    
+    elif "nice to meet you" in text_lower:
+        return f"Nice to meet you too{', ' + user_name if user_name else ''}!"
+    
+    elif any(greeting in text_lower for greeting in ["good morning", "good afternoon", "good evening"]):
+        return f"{text.capitalize()}{', ' + user_name if user_name else ''}! How can I help you today?"
+    
+    # For other conversational inputs that don't match specific patterns
+    return "How can I help you today?"
 
 def main():
+    st.set_page_config(page_title="Chat with Documents and Images")
     st.header("Chat with Documents and Images using LLAMA3🦙")
 
-    # Add clear chat history button in sidebar
-    if st.sidebar.button("Clear Chat History"):
-        if 'chat_history' in st.session_state:
-            st.session_state.chat_history = []
-        if 'qa_chain' in st.session_state:
-            del st.session_state.qa_chain
-        st.success("Chat history cleared!")
+    
+    if st.sidebar.button("Clear Conversation"):
+        st.session_state.memory.clear()
+        if 'conversation' in st.session_state:
+            st.session_state.conversation = []
+        st.success("Conversation history cleared!")
 
     with st.sidebar:
         st.title("Menu:")
@@ -213,6 +304,7 @@ def main():
         if st.button("Submit & Process"):
             if uploaded_files:
                 with st.spinner("Processing..."):
+                    print("Creating chunks!\n")
                     all_text_chunks = []
                     all_metadata_chunks = []
 
@@ -235,18 +327,17 @@ def main():
 
                     if all_text_chunks:
                         get_vector_store(all_text_chunks, all_metadata_chunks)
-                        st.success("Documents and images processed successfully!")
-                        
-                        if 'qa_chain' in st.session_state:
-                            del st.session_state.qa_chain
+                        print("Chunking Done!\n")
+                        st.success(" File processed successfully!")
                     else:
                         st.error("No content could be extracted from any of the uploaded files.")
             else:
                 st.warning("Please upload files before processing.")
 
-    user_question = st.text_input("Ask a Question from the Uploaded Files", key="question_input")
 
-    if st.button("Search") and user_question:
+    user_question = st.chat_input("Ask a question about your documents")
+
+    if user_question:
         handle_user_input(user_question)
 
 if __name__ == "__main__":
