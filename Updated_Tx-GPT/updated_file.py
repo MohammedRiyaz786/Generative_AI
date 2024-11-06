@@ -26,7 +26,7 @@ from typing import Dict, List, Optional, Tuple
 
 # Configure logging
 logging.basicConfig(
-    filename='app.log',
+    filename='app2.log.txt',
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
