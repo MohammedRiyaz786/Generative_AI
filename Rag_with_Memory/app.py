@@ -179,6 +179,23 @@ def create_qa_chain():
     
     return qa_chain
 
+def init_session_state():
+    """Initialize session state variables"""
+    if 'memory' not in st.session_state:
+        st.session_state.memory = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True,
+            output_key='answer'
+        )
+    if 'conversation' not in st.session_state:
+        st.session_state.conversation = []
+    if 'user_context' not in st.session_state:
+        st.session_state.user_context = {}
+    if 'vector_store_path' not in st.session_state:
+        st.session_state.vector_store_path = "faiss_index"
+    if 'docs_processed' not in st.session_state:
+        st.session_state.docs_processed = False
+
 def handle_user_input(user_question: str):
     """Handle user input with enhanced error handling, logging, and better conversation handling"""
     try:
@@ -225,6 +242,10 @@ def handle_user_input(user_question: str):
                         logging.error("Error in QA chain execution: %s", str(chain_error), exc_info=True)
                         raise
         
+        # Initialize conversation if it doesn't exist
+        if 'conversation' not in st.session_state:
+            st.session_state.conversation = []
+            
         # Update conversation
         st.session_state.conversation.append({
             "user": user_question,
