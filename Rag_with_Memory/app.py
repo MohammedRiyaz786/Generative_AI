@@ -33,6 +33,9 @@ from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Global variable to track if documents are processed
+if 'docs_processed' not in st.session_state:
+    st.session_state.docs_processed = False
 
 if 'memory' not in st.session_state:
     st.session_state.memory = ConversationBufferMemory(
@@ -113,7 +116,10 @@ def get_vector_store(text_chunks, metadata_chunks):
             vector_store.add_texts(batch_texts, metadatas=batch_metadata)
     
     vector_store.save_local("faiss_index")
+
     return vector_store
+
+
 
 def create_qa_chain():
     prompt_template = """You are a direct and efficient AI assistant.
@@ -193,8 +199,6 @@ def init_session_state():
         st.session_state.user_context = {}
     if 'vector_store_path' not in st.session_state:
         st.session_state.vector_store_path = "faiss_index"
-    if 'docs_processed' not in st.session_state:
-        st.session_state.docs_processed = True
 
 def handle_user_input(user_question: str):
     """Handle user input with enhanced error handling, logging, and better conversation handling"""
@@ -304,64 +308,108 @@ def handle_conversation(text: str) -> str:
     # For other conversational inputs that don't match specific patterns
     return "How can I help you today?"
 
-def main():
-    st.set_page_config(page_title="Chat with Documents and Images")
-    st.header("Chat with Documents and Images using LLAMA3🦙")
-    init_session_state()
 
+def process_documents(uploaded_files):
+    """
+    Process uploaded documents and create vector store
     
-    if st.sidebar.button("Clear Conversation"):
-        st.session_state.memory.clear()
-        if 'conversation' in st.session_state:
-            st.session_state.conversation = []
-        st.success("Conversation history cleared!")
+    Args:
+        uploaded_files: List of uploaded file objects
+        
+    Returns:
+        bool: True if processing successful, False otherwise
+    """
+    try:
+        all_text = ""
+        all_docs = []
+        
+        # Process each uploaded file
+        for uploaded_file in uploaded_files:
+            logging.info(f"Processing file: {uploaded_file.name}")
+            text, docs = extract_file_content(uploaded_file)
+            if text and docs:
+                all_text += text + "\n\n"
+                all_docs.extend(docs)
+        
+        if not all_text.strip():
+            logging.warning("No text content extracted from uploaded files")
+            return False
+            
+        # Create text chunks with metadata
+        text_chunks = []
+        metadata_chunks = []
+        
+        for doc in all_docs:
+            chunks, meta_chunks = get_text_chunks(doc.page_content, doc.metadata)
+            text_chunks.extend(chunks)
+            metadata_chunks.extend(meta_chunks)
+        
+        if not text_chunks:
+            logging.warning("No text chunks created from documents")
+            return False
+            
+        # Create and save vector store
+        vector_store = get_vector_store(text_chunks, metadata_chunks)
+        if vector_store is None:
+            logging.error("Failed to create vector store")
+            return False
+            
+        logging.info("Documents processed successfully")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Error in process_documents: {str(e)}", exc_info=True)
+        return False
 
-    with st.sidebar:
-        st.title("Menu:")
-        uploaded_files = st.file_uploader(
-            "Upload your documents (PDF, CSV, Excel, PowerPoint, Word) or images (PNG, JPG, JPEG, GIF, BMP, TIFF)",
-            accept_multiple_files=True,
-            type=['pdf', 'csv', 'xlsx', 'xls', 'pptx', 'docx', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff']
-        )
+def main():
+    try:
+        st.set_page_config(page_title="Chat with Documents and Images", layout="wide")
+        init_session_state()
+        
+        st.header("Chat with Documents and Images using LLAMA3 🦙")
+        
+        # Sidebar
+        with st.sidebar:
+            st.title("Document Processing")
+            
+            # File uploader
+            uploaded_files = st.file_uploader(
+                "Upload documents or images",
+                accept_multiple_files=True,
+                type=['pdf', 'csv', 'xlsx', 'xls', 'pptx', 'docx', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff']
+            )
+            
+            # Process button
+            if st.button("Process Documents"):
+                if uploaded_files:
+                    with st.spinner("Processing documents..."):
+                        if process_documents(uploaded_files):
+                            st.session_state.docs_processed = True  # Set to True after successful processing
+                            st.success("Documents processed successfully!")
+                        else:
+                            st.error("Error processing documents. Check logs for details.")
+                else:
+                    st.warning("Please upload files before processing.")
+            
+            # Clear button
+            if st.button("Clear All"):
+                st.session_state.memory.clear()
+                st.session_state.conversation = []
+                st.session_state.docs_processed = False  # Reset docs_processed when clearing
+                st.success("Conversation and document processing status cleared!")
+            
+            # Status indicator
+            st.write("Status:")
+            st.write(f"Documents Processed: {'✅' if st.session_state.docs_processed else '❌'}")
 
-        if st.button("Submit & Process"):
-            if uploaded_files:
-                with st.spinner("Processing..."):
-                    print("Creating chunks!\n")
-                    all_text_chunks = []
-                    all_metadata_chunks = []
-
-                    for uploaded_file in uploaded_files:
-                        try:
-                            raw_text, docs = extract_file_content(uploaded_file)
-                            
-                            if raw_text.strip() and docs:
-                                for doc in docs:
-                                    text_chunks, metadata_chunks = get_text_chunks(doc.page_content, doc.metadata)
-                                    all_text_chunks.extend(text_chunks)
-                                    all_metadata_chunks.extend(metadata_chunks)
-                            else:
-                                st.warning(f"No content could be extracted from {uploaded_file.name}")
-                                
-                        except Exception as e:
-                            st.error(f"Error processing {uploaded_file.name}: {str(e)}")
-                            logging.error(f"Error processing {uploaded_file.name}: {str(e)}")
-                            continue
-
-                    if all_text_chunks:
-                        get_vector_store(all_text_chunks, all_metadata_chunks)
-                        print("Chunking Done!\n")
-                        st.success(" File processed successfully!")
-                    else:
-                        st.error("No content could be extracted from any of the uploaded files.")
-            else:
-                st.warning("Please upload files before processing.")
-
-
-    user_question = st.chat_input("Ask a question about your documents")
-
-    if user_question:
-        handle_user_input(user_question)
+        # Chat interface
+        user_question = st.chat_input("Ask a question about your documents")
+        if user_question:
+            handle_user_input(user_question)
+            
+    except Exception as e:
+        logging.error(f"Error in main: {str(e)}", exc_info=True)
+        st.error("An error occurred in the application. Please check the logs.")
 
 if __name__ == "__main__":
     main()
