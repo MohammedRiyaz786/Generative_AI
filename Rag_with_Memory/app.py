@@ -415,9 +415,7 @@ def main():
             st.write("Status:")
             st.write(f"Documents Processed: {'✅' if st.session_state.docs_processed else '❌'}")
 
-            # Developer status
-            st.markdown("---")
-            st.markdown("### Developed by Riyaz ✨")
+
 
         # Chat interface
         user_question = st.chat_input("Ask a question about your documents")
