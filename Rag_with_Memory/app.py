@@ -450,8 +450,8 @@ def main():
                                 st.error(f"Error processing documents: {response.json()['message']}")
                         except Exception as e:
                             st.error(f"An error occurred: {str(e)}")
-                else:
-                    st.warning("Please upload files before processing.")
+            else:
+                st.warning("Please upload files before processing.")
                     
              
 
