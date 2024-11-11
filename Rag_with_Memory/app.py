@@ -426,16 +426,35 @@ def main():
             )
             
             # Process button
+            # if st.button("Process Documents"):
+            #     if uploaded_files:
+            #         with st.spinner("Processing documents..."):
+            #             if process_documents(uploaded_files):
+            #                 st.session_state.docs_processed = True
+            #                 st.success("Documents processed successfully!")
+            #             else:
+            #                 st.error("Error processing documents. Check logs for details.")
+            #     else:
+            #         st.warning("Please upload files before processing.")
+            # New API-based functionality
             if st.button("Process Documents"):
-                if uploaded_files:
+                files = st.session_state.get("uploaded_files", [])
+                if files:
                     with st.spinner("Processing documents..."):
-                        if process_documents(uploaded_files):
-                            st.session_state.docs_processed = True
-                            st.success("Documents processed successfully!")
-                        else:
-                            st.error("Error processing documents. Check logs for details.")
+                        try:
+                            response = requests.post("http://localhost:8000/process_documents", files={f.name: f.getvalue() for f in files})
+                            if response.json()["success"]:
+                                st.session_state.docs_processed = True
+                                st.success("Documents processed successfully!")
+                            else:
+                                st.error(f"Error processing documents: {response.json()['message']}")
+                        except Exception as e:
+                            st.error(f"An error occurred: {str(e)}")
                 else:
                     st.warning("Please upload files before processing.")
+                    
+             
+
             
             # Separate buttons for clearing conversation and everything
             col1, col2 = st.columns(2)
@@ -459,8 +478,17 @@ def main():
 
         # Chat interface
         user_question = st.chat_input("Ask a question about your documents")
+        # if user_question:
+        #     handle_user_input(user_question)
         if user_question:
-            handle_user_input(user_question)
+            try:
+                response = requests.post("http://localhost:8000/chat", json={"question": user_question})
+                if response.json()["success"]:
+                    handle_user_input(response.json()["response"])
+                else:
+                    st.error(f"An error occurred: {response.json()['message']}")
+            except Exception as e:
+                st.error(f"An error occurred: {str(e)}")
             
     except Exception as e:
         logging.error(f"Error in main: {str(e)}", exc_info=True)
