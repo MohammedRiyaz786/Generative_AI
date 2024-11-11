@@ -1,6 +1,6 @@
 from fastapi import FastAPI, File, UploadFile
-from utils import process_documents
-from app import handle_user_input
+from utils import *
+from app import *
 
 app = FastAPI()
 
