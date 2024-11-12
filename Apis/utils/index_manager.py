@@ -1,5 +1,5 @@
 from typing import List, Tuple, Optional
-from document_processor import*
+# from document_processor import *
 import faiss
 from datetime import datetime
 from gridfs import GridFS

@@ -1,0 +1,9 @@
+python-multipart
+faiss-cpu
+langchain_huggingface
+langchain 
+pyPDF2 
+pdfplumber
+fastapi 
+motor 
+uvicorn

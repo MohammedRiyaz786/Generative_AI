@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 import asyncio
+import logging
 from threading import Thread
 from utils.document_processor import process_pdf_document, create_document_hash
 from utils.index_manager import (
