@@ -93,9 +93,9 @@ async def process_pdf_document(file_content: bytes) -> Tuple[str, List[Document]
             
 #         return combined_text, combined_docs
         
-    except Exception as e:
-        logging.error(f"Error processing PDF: {str(e)}")
-        raise
+    # except Exception as e:
+    #     logging.error(f"Error processing PDF: {str(e)}")
+    #     raise
 
 def get_pdf_text(pdf_docs) -> Tuple[str, List[Document]]:
     """Extract text and tables from PDF documents."""
