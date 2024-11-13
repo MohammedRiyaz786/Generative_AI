@@ -25,16 +25,17 @@ async def get_vector_store(text_chunks: List[str], metadata_chunks: List) -> Tup
     for i in range(0, len(text_chunks), batch_size):
         batch_texts = text_chunks[i:i+batch_size]
         batch_metadata = metadata_chunks[i:i+batch_size]
-        
+        print("vector store")
         if vector_store is None:
-            vector_store = FAISS.from_texts(batch_texts, embedding=embeddings, metadatas=batch_metadata)
-        else:
-            vector_store.add_texts(batch_texts, metadatas=batch_metadata)
+            print(type(batch_texts),type(batch_metadata))
+            print(len(batch_texts),len(batch_metadata))
+            print(f"\n\n{batch_texts}\n\n\n{batch_metadata}")
+            vector_store = FAISS.from_documents(batch_texts, embedding=embeddings)
     
     #vector_store.save_local("faiss_index")
     
     
-    return vector_store.index, text_chunks
+    return vector_store, text_chunks
 print("vector stored")
 
 
@@ -56,7 +57,6 @@ async def create_qa_chain(faiss_index, texts: List[str]):
     OTHERWISE:
     1. Use only the provided information:
     - Context: {context}
-    - Chat History: {chat_history} 
     - Current Question: {question}
 
     2. Your response must be:
@@ -86,15 +86,11 @@ async def create_qa_chain(faiss_index, texts: List[str]):
     
     PROMPT = PromptTemplate(
         template=prompt_template,
-        input_variables=["context", "question", "chat_history"]
+        input_variables=["context", "question"]
     )
 
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    vector_store = FAISS(
-        embeddings.embed_query,
-        faiss_index,
-        texts=texts
-    )
+    vector_store = faiss_index
     
     retriever = vector_store.as_retriever(
         search_type="mmr",
