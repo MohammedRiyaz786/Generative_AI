@@ -56,8 +56,9 @@ async def process_document_api(
                         detail="Could not extract text from PDF"
                     )
                 
-                
+                print("done")
                 faiss_index, texts = await get_vector_store(documents, metadata_chunks)
+                print("storing value")
                 
                 # Store in cache
                 faiss_cache[doc_hash] = (faiss_index, texts)
@@ -77,9 +78,9 @@ async def process_document_api(
         
         return {
             "response": response,
-            "source": "cache" if doc_hash in faiss_cache else "mongodb",
-            "index_created": faiss_index is None,
-            "filename": file.filename
+            # "source": "cache" if doc_hash in faiss_cache else "mongodb",
+            # "index_created": faiss_index is None,
+            # "filename": file.filename
         }
     
     except Exception as e:

@@ -12,24 +12,13 @@ from langchain.chains import RetrievalQA
 from typing import List, Tuple
 import torch
 
-
-
-#from langchain.llms import OpenAI
-
-# async def create_faiss_index(texts: List[str]) -> Tuple[faiss.Index, List[str]]:
-#     """Create new FAISS index"""
-#     embeddings = OpenAIEmbeddings()
-#     vector_store = FAISS.from_texts(texts, embeddings)
-#     return vector_store.index, texts
-
-
 async def get_vector_store(text_chunks: List[str], metadata_chunks: List) -> Tuple[FAISS, List[str]]:
     """Create and save FAISS index from text chunks and metadata."""
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
     #embeddings.client.to(device)
-    
+    print("newline")
     batch_size = 32
     vector_store = None
 
@@ -46,21 +35,9 @@ async def get_vector_store(text_chunks: List[str], metadata_chunks: List) -> Tup
     
     
     return vector_store.index, text_chunks
+print("vector stored")
 
-# async def get_qa_chain(faiss_index, texts: List[str]):
-#     """Create QA chain from FAISS index"""
-#     embeddings = OpenAIEmbeddings()
-#     vector_store = FAISS(
-#         embeddings.embed_query,
-#         faiss_index,
-#         texts=texts
-#     )
-    
-#     return RetrievalQA.from_chain_type(
-#         llm=OpenAI(),
-#         chain_type="stuff",
-#         retriever=vector_store.as_retriever()
-#     )
+
 
 from typing import List
 
