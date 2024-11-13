@@ -22,15 +22,23 @@ def get_text_chunks(text: str, metadata) -> Tuple[List[str], List]:
     chunks = text_splitter.split_text(text)
     metadata_chunks = [metadata for _ in chunks]
     return chunks, metadata_chunks
-
-async def process_pdf_document(file_content: bytes) -> Tuple[str, List[Document]]:
-    """Process PDF content and return extracted text and documents"""
+async def process_pdf_document(file_content: bytes) -> Tuple[str, List[Document], List[dict]]:
+    """
+    Process PDF content and return extracted text, documents, and metadata
+    Returns:
+        Tuple containing:
+        - combined_text (str): All extracted text
+        - combined_docs (List[Document]): List of document chunks
+        - metadata_chunks (List[dict]): Metadata for each chunk
+    """
     pdf_file = io.BytesIO(file_content)
     
     try:
-        
+        # Get tabular content
         tabular_text, tabular_docs = get_pdf_text([pdf_file])
         pdf_file.seek(0)  
+        
+        # Get non-tabular content
         non_tabular_text, non_tabular_docs = get_non_table_pdf_text([pdf_file])
         
         combined_text = tabular_text + non_tabular_text
@@ -38,9 +46,52 @@ async def process_pdf_document(file_content: bytes) -> Tuple[str, List[Document]
         
         if not combined_text.strip():
             logging.warning("No text extracted from PDF")
-            return "", []
+            return "", [], []
+        
+        # Create metadata for each chunk
+        metadata_chunks = []
+        
+        # Add metadata for tabular chunks
+        for i, doc in enumerate(tabular_docs):
+            metadata_chunks.append({
+                "source_type": "table",
+                "chunk_index": i,
+                "content_type": "tabular",
+                "overall_index": i
+            })
+        
+        # Add metadata for non-tabular chunks
+        for i, doc in enumerate(non_tabular_docs):
+            metadata_chunks.append({
+                "source_type": "text",
+                "chunk_index": i,
+                "content_type": "non-tabular",
+                "overall_index": i + len(tabular_docs)
+            })
             
-        return combined_text, combined_docs
+        return combined_text, combined_docs, metadata_chunks
+        
+    except Exception as e:
+        logging.error(f"Error processing PDF: {str(e)}")
+        raise e
+# async def process_pdf_document(file_content: bytes) -> Tuple[str, List[Document]]:
+#     """Process PDF content and return extracted text and documents"""
+#     pdf_file = io.BytesIO(file_content)
+    
+#     try:
+        
+#         tabular_text, tabular_docs = get_pdf_text([pdf_file])
+#         pdf_file.seek(0)  
+#         non_tabular_text, non_tabular_docs = get_non_table_pdf_text([pdf_file])
+        
+#         combined_text = tabular_text + non_tabular_text
+#         combined_docs = tabular_docs + non_tabular_docs
+        
+#         if not combined_text.strip():
+#             logging.warning("No text extracted from PDF")
+#             return "", []
+            
+#         return combined_text, combined_docs
         
     except Exception as e:
         logging.error(f"Error processing PDF: {str(e)}")

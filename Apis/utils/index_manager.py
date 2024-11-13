@@ -28,7 +28,7 @@ async def get_vector_store(text_chunks: List[str], metadata_chunks: List) -> Tup
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    embeddings.client.to(device)
+    #embeddings.client.to(device)
     
     batch_size = 32
     vector_store = None
