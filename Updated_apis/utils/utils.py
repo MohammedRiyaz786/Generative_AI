@@ -185,7 +185,7 @@ def get_pdf_text(pdf_docs):
     """Extract text and tables from PDF documents."""
     text = ""
     documents = []
-    logging.info("Extracting the content from get_pdf_text")
+    # logging.info("Extracting the content from get_pdf_text")
     for pdf in pdf_docs:
         try:
             with pdfplumber.open(pdf) as pdf_reader:
@@ -222,7 +222,7 @@ def get_non_table_pdf_text(pdf_docs):
     """Extract non-tabular text from PDF documents."""
     text = ""
     documents = []
-    logging.info("Extracting the content from get_non_table_pdf_text")
+    # logging.info("Extracting the content from get_non_table_pdf_text")
 
     for pdf in pdf_docs:
         try:

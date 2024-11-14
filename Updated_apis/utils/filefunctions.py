@@ -47,7 +47,7 @@ def extract_file_content(file_content: bytes, filename: str = None) -> tuple[str
         # Create BytesIO object wrapped with filename
         file_obj = BytesIO(file_content)
         wrapped_file = FileWrapper(file_obj, filename) if filename else file_obj
-        logging.info(f"Extracting the content of file {filename}")
+        # logging.info(f"Extracting the content of file {filename}")
         # Detect file type from content
         import magic
         mime = magic.Magic(mime=True)
@@ -57,7 +57,7 @@ def extract_file_content(file_content: bytes, filename: str = None) -> tuple[str
         if 'image' in file_type:
             return process_image(wrapped_file)
         elif 'pdf' in file_type:
-            logging.info(f"PDF detected ")
+            # logging.info(f"PDF detected ")
             # Reset file pointer before each use
             wrapped_file.seek(0)
             tabular_text, tabular_docs = get_pdf_text([wrapped_file])
@@ -109,7 +109,7 @@ def get_text_chunks(text: str, metadata: dict) -> tuple[list, list]:
 def get_vector_store(text_chunks: list, metadata_chunks: list) -> FAISS:
     """Create FAISS vector store from text chunks"""
     try:
-        logging.info("creating vextor stores")
+        # logging.info("creating vextor stores")
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         
         # device = "cuda" if torch.cuda.is_available() else "cpu"
