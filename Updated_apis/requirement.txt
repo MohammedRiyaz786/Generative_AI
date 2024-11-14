@@ -20,3 +20,6 @@ torch
 langchain-text-splitters
 langchain-huggingface
 langchain-community
+colorama
+jsonify
+python-multipart

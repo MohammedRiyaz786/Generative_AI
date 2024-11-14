@@ -96,7 +96,7 @@ async def upload_document(
         )
 
 
-rag.get('/status/{document_key}')
+@rag.get('/status/{document_key}')
 def check_status(document_key:str):
     status = processing_status.get(document_key, "not found")
     if status['status']:
