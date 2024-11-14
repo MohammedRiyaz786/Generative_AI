@@ -33,7 +33,7 @@ class CustomBytesIO(io.BytesIO):
 async def store_faiss_index(document_key: str, vector_store):
     """Store FAISS index in MongoDB"""
     try:
-        processing_status[document_key]={'status':f"storing the vector store with document key {document_key}"}
+        processing_status[document_key]={'status':f"storing the vector store with document key {document_key}","Completed":6,"total":8}
         # Serialize the vector store
         
         serialized_index = pickle.dumps(vector_store)
@@ -45,16 +45,15 @@ async def store_faiss_index(document_key: str, vector_store):
         )
         # logging.info(f"\n\n\nFileid : {file_id}\n\n\n")
         if file_id:
-            logging.info("inside the iff")
+            
             # Update existing index
             sync_db.fs.files.delete_one({"_id": file_id["_id"]})
         
-        logging.info("\n\noutside the if\n\n")
+        
         fs.put(
             serialized_index,
             filename=f"faiss_index_{document_key}"
         )
-        # logging.info("storing document in db")
         # Update document status
         sync_db.documents.update_one(
             {"document_key": document_key},
@@ -63,8 +62,8 @@ async def store_faiss_index(document_key: str, vector_store):
         )
         
         logging.info(f"FAISS index stored for document {document_key}")
-        processing_status[document_key]={'status':"Stored successfully"}
-        processing_status[document_key]={'status': True}
+        processing_status[document_key]={'status':"Stored successfully","Completed":7,"total":8}
+        processing_status[document_key]={'status': True,"Completed":8,"total":8}
     except Exception as e:
         logging.error(f"Error storing FAISS index: {str(e)}")
         processing_status[document_key]={'status':False}
@@ -89,14 +88,14 @@ async def process_uploaded_file(file_content: bytes, filename: str):
 def process_document_background(file_content: bytes, filename: str, document_key: str):
     """Background task for document processing"""
     try:
-        processing_status[document_key]={'status':"Extracting document"}
+        processing_status[document_key]={'status':"Extracting document","Completed":2,"total":8}
         # Extract content using modified logic that handles filename
         text, docs = extract_file_content(file_content, filename)
         
         # Create text chunks
         text_chunks = []
         metadata_chunks = []
-        processing_status[document_key]={'status':"Document extracted"}
+        processing_status[document_key]={'status':"Document extracted","Completed":3,"total":8}
         for doc in docs:
             # Ensure filename is in metadata
             if filename and 'filename' not in doc.metadata:
@@ -104,13 +103,13 @@ def process_document_background(file_content: bytes, filename: str, document_key
             chunks, meta_chunks = get_text_chunks(doc.page_content, doc.metadata)
             text_chunks.extend(chunks)
             metadata_chunks.extend(meta_chunks)
-        processing_status[document_key]={'status':f"Chunks has been created {len(text_chunks)}"}
+        processing_status[document_key]={'status':f"Chunks has been created {len(text_chunks)}","Completed":4,"total":8}
 
 
         # Create vector store
-        processing_status[document_key]={'status': "storing vector store"}
+        # processing_status[document_key]={'status': "storing vector store","Completed":4,"total":10}
         vector_store = get_vector_store(text_chunks, metadata_chunks)
-        processing_status[document_key]={'status':"vector store created succesfully !"}
+        processing_status[document_key]={'status':"vector store created succesfully !","Completed":5,"total":8}
         
         # Store in MongoDB using a new event loop
         try:

@@ -65,7 +65,7 @@ async def upload_document(
             file_content,
             filename=f"document_{document_key}"
         )
-        processing_status[document_key]={'status':"Document recieved !"}
+        processing_status[document_key]={'status':"Document recieved !","Completed":1,"total":10}
         # Create document record
         await async_db.documents.insert_one({
             "document_key": document_key,
@@ -83,7 +83,7 @@ async def upload_document(
         thread.start()
         
         return {
-            "message": "Document uploaded and processing started",
+            "message": "Document uploaded and processing started, you can check status with document key",
             "document_key": document_key,
             "filename": file.filename
         }
@@ -99,21 +99,21 @@ async def upload_document(
 @rag.get('/status/{document_key}')
 def check_status(document_key:str):
     status = processing_status.get(document_key, "not found")
-    if status['status']:
-        return jsonify({
-            "document_key": document_key,
-            "status": "Done"
-        })
-    elif not status['status']:
-        return jsonify({
+    if status['status']==True:
+        return {
+            "document_key": document_key, **status
+        }
+    elif status['status']==False:
+        return {
             "document_key": document_key,
             "status": "Error occured, contact admin"
-        })
+            
+             }  
     else:
-        return jsonify({
+        return {
             "document_key": document_key,
-            "status": status['status']
-        })
+            **status
+        }
 
 
 
