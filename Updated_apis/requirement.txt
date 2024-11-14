@@ -6,6 +6,7 @@ python-pptx
 python-magic
 python-docx
 pdfplumber
+
 langchain-core
 PyPDF2
 python-docx
@@ -16,6 +17,6 @@ numpy
 easyocr
 transformers
 torch
-langchain-textsplitter
+langchain-text-splitters
 langchain-huggingface
 langchain-community
