@@ -1,5 +1,4 @@
 pdfplumber
-csv
 pandas
 langchain-core
 PyPDF2
