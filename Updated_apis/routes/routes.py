@@ -127,24 +127,24 @@ async def upload_document(
 
 
 
-@rag.get('/status/{document_key}')
+@rag.post('/status/{document_key}')
 def check_status(document_key:str):
     status = processing_status.get(document_key, "not found")
     if status['status']==True:
-        return {
+        return json.dumps({
             "document_key": document_key, **status
-        }
+        })
     elif status['status']==False:
-        return {
+        return json.dumps({
             "document_key": document_key,
             "status": "Error occured, contact admin"
             
-             }  
+             }  )
     else:
-        return {
+        return json.dumps({
             "document_key": document_key,
             **status
-        }
+        })
 
 
 
