@@ -35,7 +35,11 @@ class CustomBytesIO(io.BytesIO):
 async def store_faiss_index(document_key: str, vector_store):
     """Store FAISS index in MongoDB"""
     try:
-        processing_status[document_key]={'status':f"storing the vector store with document key {document_key}","Completed":6,"total":8}
+        processing_status[document_key] = {
+            'status': f"Storing the vector store with document key {document_key}",
+            'Completed': 6,
+            'total': 8
+        }
         # Serialize the vector store
         
         serialized_index = pickle.dumps(vector_store)
@@ -64,11 +68,19 @@ async def store_faiss_index(document_key: str, vector_store):
         )
         
         logging.info(f"FAISS index stored for document {document_key}")
-        processing_status[document_key]={'status':"Stored successfully","Completed":7,"total":8}
-        processing_status[document_key]={'status': True,"Completed":8,"total":8}
+        processing_status[document_key] = {
+            'status': "Vector store stored successfully",
+            'Completed': 7,
+            'total': 8
+        }
+        processing_status[document_key] = {
+            'status': True,
+            'Completed': 8,
+            'total': 8
+        }    
     except Exception as e:
         logging.error(f"Error storing FAISS index: {str(e)}")
-        processing_status[document_key]={'status':False}
+        processing_status[document_key] = {'status': False}
         sync_db.documents.update_one(
             {"document_key": document_key},
             {"$set": {"index_status": "failed"}},

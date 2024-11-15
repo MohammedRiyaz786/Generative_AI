@@ -5,6 +5,8 @@ from langchain.memory import ConversationBufferMemory
 from langchain.schema import HumanMessage, AIMessage
 from threading import Thread
 import logging
+import asyncio
+from fastapi.responses import StreamingResponse
 import json
 import jsonify
 rag = APIRouter()
@@ -126,27 +128,44 @@ async def upload_document(
     
 
 
+@rag.get('/status/{document_key}')
+async def check_status(document_key: str):
+    status = processing_status.get(document_key)
+    if not status:
+        raise HTTPException(status_code=404, detail="Document key not found")
 
-@rag.post('/status/{document_key}')
-def check_status(document_key:str):
-    status = processing_status.get(document_key, "not found")
-    if status['status']==True:
-        return json.dumps({
-            "document_key": document_key, **status
-        })
-    elif status['status']==False:
-        return json.dumps({
-            "document_key": document_key,
-            "status": "Error occured, contact admin"
+    async def generate():
+        while True:
+            current_status = processing_status.get(document_key)
+            if not current_status:
+                yield json.dumps({"document_key": document_key, "status": "Not found"}) + "\n"
+                break
             
-             }  )
-    else:
-        return json.dumps({
-            "document_key": document_key,
-            **status
-        })
+            if current_status.get('status') is True:
+                yield json.dumps({
+                    "document_key": document_key,
+                    "status": "Completed",
+                    "completed": current_status.get('Completed', 8),
+                    "total": current_status.get('total', 8)
+                }) + "\n"
+                break
+            elif current_status.get('status') is False:
+                yield json.dumps({
+                    "document_key": document_key,
+                    "status": "Error occurred, contact admin"
+                }) + "\n"
+                break
+            else:
+                yield json.dumps({
+                    "document_key": document_key,
+                    "status": current_status.get('status', "Processing"),
+                    "completed": current_status.get('Completed', 0),
+                    "total": current_status.get('total', 8)
+                }) + "\n"
+            
+            await asyncio.sleep(1)  # Wait for 1 second before sending the next update
 
-
+    return StreamingResponse(generate(), media_type="application/json")
 
 
 @rag.post("/chat", response_model=ChatResponse)
