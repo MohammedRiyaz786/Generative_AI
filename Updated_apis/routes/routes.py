@@ -5,6 +5,7 @@ from langchain.memory import ConversationBufferMemory
 from langchain.schema import HumanMessage, AIMessage
 from threading import Thread
 import logging
+import json
 import jsonify
 rag = APIRouter()
 
@@ -150,15 +151,31 @@ def check_status(document_key:str):
 
 @rag.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(
+    background_tasks: BackgroundTasks,
     req:Request,
-    chat_request: ChatRequest,
-    background_tasks: BackgroundTasks
+    document_key: str = Form(...),
+    prompt: str = Form(...),
+    chat_history: Optional[str] = Form(None),
 ):
     try:
         user_ip = req.client.host
         logging.info(f"Chat request recieved from IP :{user_ip}")
 
         # Check if document exists and get status
+         # Convert chat_history from string to List[Dict[str, str]]
+        chat_history_list = []
+        if chat_history:
+            try:
+                chat_history_list = json.loads(chat_history)
+            except json.JSONDecodeError:
+                raise HTTPException(status_code=400, detail="Invalid chat history format")
+
+        # Create a ChatRequest object
+        chat_request = ChatRequest(
+            document_key=document_key,
+            prompt=prompt,
+            chat_history=chat_history_list
+        )
         doc_status = await async_db.documents.find_one(
             {"document_key": chat_request.document_key}
         )
