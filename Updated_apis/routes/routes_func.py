@@ -150,3 +150,39 @@ async def get_faiss_index(document_key: str):
     except Exception as e:
         logging.error(f"Error retrieving FAISS index: {str(e)}")
         raise
+
+
+
+async def load_qa_chain(document_key: str):
+    """Load QA chain from MongoDB"""
+    try:
+        # Retrieve the serialized QA chain from GridFS
+        file = sync_db.fs.find_one({"filename": f"qa_chain_{document_key}"})
+        if file:
+            serialized_chain =  sync_db.fs.open_download_stream(file._id).read()
+            return pickle.loads(serialized_chain)
+        return None
+    except Exception as e:
+        logging.error(f"Error loading QA chain: {str(e)}")
+        return None
+
+async def store_qa_chain(document_key: str, qa_chain):
+    """Store QA chain in MongoDB"""
+    try:
+        # Serialize the QA chain
+        serialized_chain = pickle.dumps(qa_chain)
+        
+        # Store in GridFS
+        file =  sync_db.fs.find_one({"filename": f"qa_chain_{document_key}"})
+        if file:
+            # Update existing chain
+             sync_db.fs.delete(file._id)
+        
+        sync_db.fs.upload_from_stream(
+            f"qa_chain_{document_key}",
+            serialized_chain
+        )
+        
+        logging.info(f"QA chain stored for document {document_key}")
+    except Exception as e:
+        logging.error(f"Error storing QA chain: {str(e)}")

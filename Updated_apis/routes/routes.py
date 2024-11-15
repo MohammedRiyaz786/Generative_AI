@@ -1,14 +1,15 @@
 from fastapi import  UploadFile, HTTPException, BackgroundTasks,Request,APIRouter
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List,Dict
 from langchain.memory import ConversationBufferMemory
+from langchain.schema import HumanMessage, AIMessage
 from threading import Thread
 import logging
 import jsonify
 rag = APIRouter()
 
 # from ..db import async_db,fs
-from .routes_func import process_document_background,get_faiss_index,async_db,fs,processing_status
+from .routes_func import process_document_background,get_faiss_index,async_db,fs,processing_status,store_qa_chain,load_qa_chain
 from utils.filefunctions import create_qa_chain
 
 
@@ -18,6 +19,8 @@ from utils.filefunctions import create_qa_chain
 class ChatRequest(BaseModel):
     document_key: str
     prompt: str
+    chat_history: Optional[List[Dict[str, str]]] = []
+
 
 class ChatResponse(BaseModel):
     response: str
@@ -159,6 +162,13 @@ async def chat_endpoint(
             return_messages=True,
             output_key='answer'
         )
+        if chat_request.chat_history:
+            for message in chat_request.chat_history:
+                if message["type"] == "human":
+                    memory.chat_memory.add_message(HumanMessage(content=message["content"]))
+                elif message["type"] == "ai":
+                    memory.chat_memory.add_message(AIMessage(content=message["content"]))
+
         
         # Create QA chain using existing logic
         qa_chain = create_qa_chain(vector_store, memory)
@@ -178,3 +188,5 @@ async def chat_endpoint(
             response="",
             error=f"An error occurred: {str(e)}"
         )
+    
+
