@@ -2,6 +2,8 @@ import logging
 import io
 import pickle
 import asyncio
+from typing import List
+
 # from .routes import processing_status
 processing_status = {}
 from .db import sync_db,async_db,fs
@@ -84,58 +86,90 @@ async def process_uploaded_file(file_content: bytes, filename: str):
     file_obj = CustomBytesIO(file_content, filename)
     return file_obj
 
-
-def process_document_background(file_content: bytes, filename: str, document_key: str):
-    """Background task for document processing"""
+def process_document_background(file_contents: List[tuple], document_key: str):
+    """Background task for processing multiple documents"""
     try:
-        processing_status[document_key]={'status':"Extracting document","Completed":2,"total":8}
-        # Extract content using modified logic that handles filename
-        text, docs = extract_file_content(file_content, filename)
+        processing_status[document_key] = {'status': "Starting document processing", "Completed": 1, "total": 8}
         
-        # Create text chunks
-        text_chunks = []
-        metadata_chunks = []
-        processing_status[document_key]={'status':"Document extracted","Completed":3,"total":8}
-        for doc in docs:
-            # Ensure filename is in metadata
-            if filename and 'filename' not in doc.metadata:
-                doc.metadata['filename'] = filename
-            chunks, meta_chunks = get_text_chunks(doc.page_content, doc.metadata)
-            text_chunks.extend(chunks)
-            metadata_chunks.extend(meta_chunks)
-        processing_status[document_key]={'status':f"Chunks has been created {len(text_chunks)}","Completed":4,"total":8}
+        all_text_chunks = []
+        all_metadata_chunks = []
+        total_files = len(file_contents)
+        
+        # Process each file one at a time
+        for index, (file_content, filename) in enumerate(file_contents, 1):
+            try:
+                processing_status[document_key] = {
+                    'status': f"Processing file {index}/{total_files}: {filename}",
+                    'Completed': 2,
+                    'total': 8
+                }
+                
+                # Extract content for single file using existing function
+                text, docs = extract_file_content(file_content, filename)
+                
+                # Process chunks for this document
+                for doc in docs:
+                    if filename and 'filename' not in doc.metadata:
+                        doc.metadata['filename'] = filename
+                    chunks, meta_chunks = get_text_chunks(doc.page_content, doc.metadata)
+                    all_text_chunks.extend(chunks)
+                    all_metadata_chunks.extend(meta_chunks)
+                
+                processing_status[document_key] = {
+                    'status': f"Processed file {index}/{total_files}",
+                    'Completed': 3,
+                    'total': 8
+                }
+                
+            except Exception as e:
+                logging.error(f"Error processing file {filename}: {str(e)}")
+                continue  # Continue with next file even if one fails
+        
+        if not all_text_chunks:
+            raise Exception("No documents were successfully processed")
 
+        processing_status[document_key] = {
+            'status': f"Created {len(all_text_chunks)} chunks from all documents",
+            'Completed': 4,
+            'total': 8
+        }
 
-        # Create vector store
-        # processing_status[document_key]={'status': "storing vector store","Completed":4,"total":10}
-        vector_store = get_vector_store(text_chunks, metadata_chunks)
-        processing_status[document_key]={'status':"vector store created succesfully !","Completed":5,"total":8}
+        # Create single vector store from all accumulated chunks
+        vector_store = get_vector_store(all_text_chunks, all_metadata_chunks)
+        
+        processing_status[document_key] = {
+            'status': "Vector store created successfully!",
+            'Completed': 5,
+            'total': 8
+        }
         
         # Store in MongoDB using a new event loop
         try:
-            # processing_status[document_key]={'status':"storing vector store in DB"
             asyncio.run(store_faiss_index(document_key, vector_store))
-
-        finally:
-            # future.result()
-            pass
+            processing_status[document_key] = {
+                'status': "All documents processed successfully",
+                'Completed': 8,
+                'total': 8
+            }
             
+        except Exception as e:
+            raise Exception(f"Error storing FAISS index: {str(e)}")
             
     except Exception as e:
         logging.error(f"Error in background processing: {str(e)}")
-        # Update document status to failed using a new event loop
         new_loop = asyncio.new_event_loop()
         try:
             future = asyncio.run_coroutine_threadsafe(
-            async_db.documents.update_one(
-                {"document_key": document_key},
-                {"$set": {"index_status": "failed", "error": str(e)}},
-                upsert=True
-            ),new_loop)
+                async_db.documents.update_one(
+                    {"document_key": document_key},
+                    {"$set": {"index_status": "failed", "error": str(e)}},
+                    upsert=True
+                ),
+                new_loop
+            )
             future.result()
         finally:
             new_loop.close()
-
 
 
 async def get_faiss_index(document_key: str):

@@ -1,4 +1,4 @@
-from fastapi import  UploadFile, HTTPException, BackgroundTasks,Request,APIRouter
+from fastapi import  UploadFile, HTTPException, BackgroundTasks,Request,APIRouter,Form,UploadFile,File
 from pydantic import BaseModel
 from typing import Optional, List,Dict
 from langchain.memory import ConversationBufferMemory
@@ -26,30 +26,31 @@ class ChatResponse(BaseModel):
     response: str
     error: Optional[str] = None
 
+
+
 @rag.post("/upload")
 async def upload_document(
-    req : Request,
-    file: UploadFile,
-    document_key: str,
-    background_tasks: BackgroundTasks
+    req: Request,
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    document_key: str = Form(...),
 ):
     try:
         user_ip = req.client.host
-        logging.info(f"Upload request recieved from IP {user_ip}")
-        # Validate file type
+        logging.info(f"Upload request received from IP {user_ip}")
+        
+        if not files:
+            raise HTTPException(
+                status_code=400,
+                detail="No files provided"
+            )
+
         allowed_extensions = {
             'pdf', 'csv', 'xlsx', 'xls', 'pptx', 'docx',
             'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff'
         }
-        file_extension = file.filename.split('.')[-1].lower()
         
-        if file_extension not in allowed_extensions:
-            raise HTTPException(
-                status_code=400,
-                detail=f"File type not allowed. Allowed types: {', '.join(allowed_extensions)}"
-            )
-        
-        # Check if document already exists
+        # Check if document key exists
         existing_doc = await async_db.documents.find_one(
             {"document_key": document_key}
         )
@@ -57,46 +58,72 @@ async def upload_document(
         if existing_doc:
             raise HTTPException(
                 status_code=400,
-                detail="Document key already exists."
+                detail=f"Document key {document_key} already exists."
+            )
+
+        file_details = []
+        file_contents = []
+        
+        # Process all files
+        for file in files:
+            # Validate file type
+            file_extension = file.filename.split('.')[-1].lower()
+            if file_extension not in allowed_extensions:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File {file.filename} type not allowed. Allowed types: {', '.join(allowed_extensions)}"
+                )
+            
+            # Read file content
+            file_content = await file.read()
+            
+            # Store in GridFS
+            file_id = fs.put(
+                file_content,
+                filename=f"document_{document_key}_{file.filename}"
             )
             
-        # Read file content
-        file_content = await file.read()
-        
-        # Store file in GridFS
-        file_id = fs.put(
-            file_content,
-            filename=f"document_{document_key}"
-        )
-        processing_status[document_key]={'status':"Document recieved !","Completed":1,"total":10}
-        # Create document record
+            file_details.append({
+                "file_id": file_id,
+                "filename": file.filename
+            })
+            file_contents.append((file_content, file.filename))
+
+        # Create single document record
         await async_db.documents.insert_one({
             "document_key": document_key,
-            "file_id": file_id,
-            "filename": file.filename,
+            "files": file_details,
             "index_status": "processing"
         })
+
+        processing_status[document_key] = {
+            'status': f"Received {len(files)} documents",
+            'Completed': 1,
+            'total': 8
+        }
         
-        # Start background processing with filename information
+        # Start processing thread with all files
         thread = Thread(
             target=process_document_background,
-            args=(file_content, file.filename, document_key)
+            args=(file_contents, document_key)
         )
-        thread.daemon = True  # Set daemon to True
+        thread.daemon = True
         thread.start()
         
         return {
-            "message": "Document uploaded and processing started, you can check status with document key",
+            "message": "Documents uploaded and processing started",
             "document_key": document_key,
-            "filename": file.filename
+            "files": [detail["filename"] for detail in file_details]
         }
         
     except Exception as e:
-        logging.error(f"Error uploading document: {str(e)}")
+        logging.error(f"Error uploading documents: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error uploading document: {str(e)}"
+            detail=f"Error uploading documents: {str(e)}"
         )
+    
+
 
 
 @rag.get('/status/{document_key}')
