@@ -158,11 +158,11 @@ def process_document_background(file_contents: List[tuple], document_key: str):
         # Store in MongoDB using a new event loop
         try:
             asyncio.run(store_faiss_index(document_key, vector_store))
-            processing_status[document_key] = {
-                'status': "All documents processed successfully",
-                'Completed': 8,
-                'total': 8
-            }
+            # processing_status[document_key] = {
+            #     'status': "All documents processed successfully",
+            #     'Completed': 8,
+            #     'total': 8
+            # }
             
         except Exception as e:
             raise Exception(f"Error storing FAISS index: {str(e)}")
