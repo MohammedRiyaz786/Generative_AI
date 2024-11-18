@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware  
 from APP_LOGGING import setup_logging
+import logging
 from  routes.routes import rag
 # Configure logging
 if not setup_logging():
@@ -22,5 +23,6 @@ app.include_router(rag,prefix="/rag/v1")
 
 
 if __name__ == "__main__":
+    logging.info("Started FastAPI Server !")
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

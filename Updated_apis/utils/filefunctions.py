@@ -52,7 +52,7 @@ def extract_file_content(file_content: bytes, filename: str = None) -> tuple[str
         import magic
         mime = magic.Magic(mime=True)
         file_type = mime.from_buffer(file_content)
-        
+        print(file_type)
         # Process based on file type
         if 'image' in file_type:
             return process_image(wrapped_file)
