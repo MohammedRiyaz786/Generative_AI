@@ -163,7 +163,7 @@ async def check_status(document_key: str):
                     "total": current_status.get('total', 8)
                 }) + "\n"
             
-            await asyncio.sleep(1)  # Wait for 1 second before sending the next update
+            await asyncio.sleep(0.1)  # Wait for 1 second before sending the next update
 
     return StreamingResponse(generate(), media_type="application/json")
 
