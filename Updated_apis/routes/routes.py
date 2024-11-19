@@ -12,7 +12,8 @@ import jsonify
 rag = APIRouter()
 
 # from ..db import async_db,fs
-from .routes_func import process_document_background,get_faiss_index,async_db,fs,processing_status,store_qa_chain,load_qa_chain
+from .routes_func import process_document_background,get_faiss_index,async_db,fs
+from StatusTracker import status_tracker
 from utils.filefunctions import create_qa_chain
 
 
@@ -99,11 +100,11 @@ async def upload_document(
             "index_status": "processing"
         })
 
-        processing_status[document_key] = {
-            'status': f"Received {len(files)} documents",
-            'Completed': 1,
-            'total': 8
-        }
+        # processing_status[document_key] = {
+        #     'status': f"Received {len(files)} documents",
+        #     'Completed': 1,
+        #     'total': 8
+        # }
         
         # Start processing thread with all files
         thread = Thread(
@@ -126,46 +127,43 @@ async def upload_document(
             detail=f"Error uploading documents: {str(e)}"
         )
     
-
-
 @rag.get('/status/{document_key}')
 async def check_status(document_key: str):
-    status = processing_status.get(document_key)
-    if not status:
+    status_history = status_tracker.get_status_history(document_key)
+    if not status_history and not status_tracker.is_processed(document_key):
         raise HTTPException(status_code=404, detail="Document key not found")
 
     async def generate():
-        while True:
-            current_status = processing_status.get(document_key)
-            if not current_status:
-                yield json.dumps({"document_key": document_key, "status": "Not found"}) + "\n"
-                break
+        if status_tracker.is_processed(document_key):
+            # If already processed, just return completed status
+            yield json.dumps({
+                "document_key": document_key,
+                "status": "Processing completed",
+                "completed": 8,
+                "total": 8
+            }) + "\n"
+            return
+
+        # Stream all existing status updates
+        for status in status_history:
+            response_data = {
+                "document_key": document_key,
+                "status": status.message,
+                "completed": status.completed,
+                "total": status.total
+            }
+            if status.details:
+                response_data.update(status.details)
             
-            if current_status.get('status') is True:
-                yield json.dumps({
-                    "document_key": document_key,
-                    "status": "Completed",
-                    "completed": current_status.get('Completed', 8),
-                    "total": current_status.get('total', 8)
-                }) + "\n"
-                break
-            elif current_status.get('status') is False:
-                yield json.dumps({
-                    "document_key": document_key,
-                    "status": "Error occurred, contact admin"
-                }) + "\n"
-                break
-            else:
-                yield json.dumps({
-                    "document_key": document_key,
-                    "status": current_status.get('status', "Processing"),
-                    "completed": current_status.get('Completed', 0),
-                    "total": current_status.get('total', 8)
-                }) + "\n"
-            
-            await asyncio.sleep(0.1)  # Wait for 1 second before sending the next update
+            yield json.dumps(response_data) + "\n"
+            await asyncio.sleep(0.1)  # Small delay between updates
+
+        # If this was the last status check (completed), mark as processed
+        if status_history and status_history[-1].completed == 8:
+            status_tracker.mark_as_processed(document_key)
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
 
 
 @rag.post("/chat", response_model=ChatResponse)

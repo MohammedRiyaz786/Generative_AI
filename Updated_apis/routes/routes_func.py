@@ -7,6 +7,7 @@ from typing import List
 # from .routes import processing_status
 processing_status = {}
 from .db import sync_db,async_db,fs
+from StatusTracker import status_tracker
 from utils.filefunctions import extract_file_content,get_vector_store,get_text_chunks
 
 
@@ -35,11 +36,11 @@ class CustomBytesIO(io.BytesIO):
 async def store_faiss_index(document_key: str, vector_store):
     """Store FAISS index in MongoDB"""
     try:
-        processing_status[document_key] = {
-            'status': f"Storing the vector store with document key {document_key}",
-            'Completed': 6,
-            'total': 8
-        }
+        status_tracker.add_status(document_key=document_key,
+                                  message="Starting vector store storage",
+                                  completed=6
+        )
+        
         # Serialize the vector store
         
         serialized_index = pickle.dumps(vector_store)
@@ -60,27 +61,38 @@ async def store_faiss_index(document_key: str, vector_store):
             serialized_index,
             filename=f"faiss_index_{document_key}"
         )
+        status_tracker.add_status(
+            document_key,
+            "Storing vector data in database",
+            7
+        )
         # Update document status
         sync_db.documents.update_one(
             {"document_key": document_key},
             {"$set": {"index_status": "completed"}},
             upsert=True
         )
-        
+        status_tracker.add_status(
+            document_key,
+            "Processing completed successfully",
+            8
+        )
         logging.info(f"FAISS index stored for document {document_key}")
-        processing_status[document_key] = {
-            'status': "Vector store stored successfully",
-            'Completed': 7,
-            'total': 8
-        }
-        processing_status[document_key] = {
-            'status': True,
-            'Completed': 8,
-            'total': 8
-        }    
+        
+
+        # status_tracker.update_status(
+        #     document_key,
+        #     ProcessingStage.COMPLETED,
+        #     "Processing completed successfully",
+        #     8
+        # ) 
     except Exception as e:
         logging.error(f"Error storing FAISS index: {str(e)}")
-        processing_status[document_key] = {'status': False}
+        status_tracker.add_status(
+            document_key,
+            f"Error storing FAISS index: {str(e)}",
+            -1
+        )
         sync_db.documents.update_one(
             {"document_key": document_key},
             {"$set": {"index_status": "failed"}},
@@ -101,7 +113,11 @@ async def process_uploaded_file(file_content: bytes, filename: str):
 def process_document_background(file_contents: List[tuple], document_key: str):
     """Background task for processing multiple documents"""
     try:
-        processing_status[document_key] = {'status': "Starting document processing", "Completed": 1, "total": 8}
+        status_tracker.add_status(
+            document_key,
+            "Starting document processing",
+            1
+        )
         
         all_text_chunks = []
         all_metadata_chunks = []
@@ -110,11 +126,11 @@ def process_document_background(file_contents: List[tuple], document_key: str):
         # Process each file one at a time
         for index, (file_content, filename) in enumerate(file_contents, 1):
             try:
-                processing_status[document_key] = {
-                    'status': f"Processing file {index}/{total_files}: {filename}",
-                    'Completed': 2,
-                    'total': 8
-                }
+                status_tracker.add_status(
+                    document_key,
+                    f"Processing {total_files} files",
+                    2
+                )
                 
                 # Extract content for single file using existing function
                 text, docs = extract_file_content(file_content, filename)
@@ -127,12 +143,12 @@ def process_document_background(file_contents: List[tuple], document_key: str):
                     all_text_chunks.extend(chunks)
                     all_metadata_chunks.extend(meta_chunks)
                 
-                processing_status[document_key] = {
-                    'status': f"Processed file {index}/{total_files}",
-                    'Completed': 3,
-                    'total': 8
-                }
-                
+                status_tracker.add_status(
+                    document_key,
+                    "File processing completed",
+                    3
+                )
+                        
             except Exception as e:
                 logging.error(f"Error processing file {filename}: {str(e)}")
                 continue  # Continue with next file even if one fails
@@ -140,35 +156,35 @@ def process_document_background(file_contents: List[tuple], document_key: str):
         if not all_text_chunks:
             raise Exception("No documents were successfully processed")
 
-        processing_status[document_key] = {
-            'status': f"Created {len(all_text_chunks)} chunks from all documents",
-            'Completed': 4,
-            'total': 8
-        }
+        status_tracker.add_status(
+            document_key,
+            f"Created {len(all_text_chunks)} chunks from documents",
+            4
+        )
 
         # Create single vector store from all accumulated chunks
         vector_store = get_vector_store(all_text_chunks, all_metadata_chunks)
         
-        processing_status[document_key] = {
-            'status': "Vector store created successfully!",
-            'Completed': 5,
-            'total': 8
-        }
+        status_tracker.add_status(
+            document_key,
+            "Vector store created successfully",
+            5
+        )
         
         # Store in MongoDB using a new event loop
         try:
             asyncio.run(store_faiss_index(document_key, vector_store))
-            # processing_status[document_key] = {
-            #     'status': "All documents processed successfully",
-            #     'Completed': 8,
-            #     'total': 8
-            # }
             
         except Exception as e:
             raise Exception(f"Error storing FAISS index: {str(e)}")
             
     except Exception as e:
         logging.error(f"Error in background processing: {str(e)}")
+        # status_tracker.add_status(
+        #     document_key,
+        #     f"Error occurred: {str(e)}",
+        #     -1
+        # )
         new_loop = asyncio.new_event_loop()
         try:
             future = asyncio.run_coroutine_threadsafe(
