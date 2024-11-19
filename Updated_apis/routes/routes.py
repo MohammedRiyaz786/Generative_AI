@@ -165,7 +165,7 @@ async def check_status(document_key: str):
             
             await asyncio.sleep(0.1)  # Wait for 1 second before sending the next update
 
-    return StreamingResponse(generate(), media_type="application/json")
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 @rag.post("/chat", response_model=ChatResponse)
