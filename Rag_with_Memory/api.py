@@ -1,286 +1,253 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional, Dict
-import uvicorn
-from datetime import datetime
-import logging
-import pickle
-import gridfs
-from pymongo import MongoClient
-import torch
-from langchain_core.documents import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_community.llms import Ollama
+from typing import List, Dict, Optional
+from pydantic import BaseModel, Field
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import LLMChainExtractor
+from langchain.callbacks import get_openai_callback
+from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
-import io
-import json
+from langchain.output_parsers import PydanticOutputParser
+from datetime import datetime
+import numpy as np
+from scipy.spatial.distance import cosine
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+class RelevanceScore(BaseModel):
+    score: float = Field(description="Relevance score between 0 and 1")
+    reasoning: str = Field(description="Explanation of why this score was given")
 
-app = FastAPI(title="Document Chat API")
-
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# MongoDB Configuration
-MONGO_CONNECTION_STRING = "mongodb://localhost:27017/"
-DB_NAME = "document_chat"
-
-# Pydantic Models
 class ChatRequest(BaseModel):
-    question: str
-    conversation_id: str
-    user_id: Optional[str] = None
+    document_key: str
+    prompt: str
+    chat_history: Optional[List[Dict[str, str]]] = []
+    max_tokens: Optional[int] = 2000
+    temperature: Optional[float] = 0.1
 
 class ChatResponse(BaseModel):
-    answer: str
-    conversation_id: str
-    sources: Optional[List[str]] = None
+    response: str
+    error: Optional[str] = None
+    confidence_score: Optional[float] = None
+    relevant_chunks: Optional[List[str]] = None
 
-class ProcessingStatus(BaseModel):
-    status: str
-    message: str
-    job_id: Optional[str] = None
-
-# MongoDB Connection
-def get_mongodb_connection():
+@rag.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(
+    background_tasks: BackgroundTasks,
+    req: Request,
+    document_key: str = Form(...),
+    prompt: str = Form(...),
+    chat_history: Optional[str] = Form(None),
+    max_tokens: Optional[int] = Form(2000),
+    temperature: Optional[float] = Form(0.1)
+):
     try:
-        client = MongoClient(MONGO_CONNECTION_STRING)
-        db = client[DB_NAME]
-        return db
-    except Exception as e:
-        logger.error(f"MongoDB connection error: {str(e)}")
-        raise
+        user_ip = req.client.host
+        logging.info(f"Chat request received from IP: {user_ip}")
 
-# Vector Store Operations
-def save_vector_store_to_mongodb(vector_store, metadata=None):
-    try:
-        db = get_mongodb_connection()
-        fs = gridfs.GridFS(db)
-        
-        serialized_vector_store = pickle.dumps(vector_store)
-        
-        file_metadata = {
-            'type': 'faiss_index',
-            'created_at': datetime.utcnow(),
-            'custom_metadata': metadata or {}
-        }
-        
-        file_id = fs.put(serialized_vector_store, **file_metadata)
-        return str(file_id)
-    
-    except Exception as e:
-        logger.error(f"Error saving vector store: {str(e)}")
-        raise
+        # Validate and parse chat history
+        chat_history_list = []
+        if chat_history:
+            try:
+                chat_history_list = json.loads(chat_history)
+            except json.JSONDecodeError:
+                raise HTTPException(status_code=400, detail="Invalid chat history format")
 
-def load_vector_store_from_mongodb():
-    try:
-        db = get_mongodb_connection()
-        fs = gridfs.GridFS(db)
-        
-        latest_vector_store = fs.find_one(
-            {'type': 'faiss_index'},
-            sort=[('created_at', -1)]
+        # Create request object
+        chat_request = ChatRequest(
+            document_key=document_key,
+            prompt=prompt,
+            chat_history=chat_history_list,
+            max_tokens=max_tokens,
+            temperature=temperature
         )
-        
-        if not latest_vector_store:
-            return None
-        
-        vector_store = pickle.loads(latest_vector_store.read())
-        return vector_store
-    
-    except Exception as e:
-        logger.error(f"Error loading vector store: {str(e)}")
-        raise
 
-# Document Processing Functions
-def process_file(file_content: bytes, file_name: str) -> tuple[str, List[Document]]:
-    """Process uploaded file and return extracted text and documents"""
-    # Implement your existing file processing logic here
-    # This should include your PDF, CSV, Excel, etc. processing functions
-    # Return tuple of (extracted_text, documents)
-    pass
+        # Validate document status
+        doc_status = await async_db.documents.find_one({"document_key": chat_request.document_key})
+        if not doc_status:
+            raise HTTPException(status_code=404, detail="Document not found. Please upload the document first.")
+        if doc_status.get("index_status") != "completed":
+            raise HTTPException(status_code=400, detail="Document is still being processed. Please try again later.")
 
-def create_text_chunks(text: str, metadata: Dict) -> tuple[List[str], List[Dict]]:
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
-        length_function=len,
-        separators=["\n\n", "\n", ". ", " ", ""]
-    )
-    chunks = text_splitter.split_text(text)
-    metadata_chunks = [metadata for _ in chunks]
-    return chunks, metadata_chunks
-
-def create_vector_store(text_chunks: List[str], metadata_chunks: List[Dict]):
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    embeddings.client.to(device)
-    
-    vector_store = FAISS.from_texts(
-        texts=text_chunks,
-        embedding=embeddings,
-        metadatas=metadata_chunks
-    )
-    
-    return vector_store
-
-# Conversation Management
-class ConversationManager:
-    def __init__(self):
-        self.conversations = {}
-    
-    def get_or_create_memory(self, conversation_id: str) -> ConversationBufferMemory:
-        if conversation_id not in self.conversations:
-            self.conversations[conversation_id] = ConversationBufferMemory(
-                memory_key="chat_history",
-                return_messages=True,
-                output_key='answer'
-            )
-        return self.conversations[conversation_id]
-    
-    def clear_conversation(self, conversation_id: str):
-        if conversation_id in self.conversations:
-            self.conversations[conversation_id].clear()
-
-conversation_manager = ConversationManager()
-
-# API Endpoints
-@app.post("/api/documents/upload")
-async def upload_documents(
-    files: List[UploadFile] = File(...),
-    background_tasks: BackgroundTasks = None
-) -> ProcessingStatus:
-    try:
-        job_id = f"job_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-        
-        # Process files in background
-        background_tasks.add_task(process_documents_background, files, job_id)
-        
-        return ProcessingStatus(
-            status="processing",
-            message="Documents are being processed",
-            job_id=job_id
-        )
-    
-    except Exception as e:
-        logger.error(f"Error in document upload: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/documents/status/{job_id}")
-async def get_processing_status(job_id: str) -> ProcessingStatus:
-    # Implement job status checking logic
-    # This could involve checking a status in MongoDB
-    pass
-
-@app.post("/api/chat")
-async def chat(request: ChatRequest) -> ChatResponse:
-    try:
-        vector_store = load_vector_store_from_mongodb()
+        # Get FAISS index
+        vector_store = await get_faiss_index(chat_request.document_key)
         if not vector_store:
-            raise HTTPException(status_code=404, detail="No processed documents found")
-        
-        memory = conversation_manager.get_or_create_memory(request.conversation_id)
-        
-        qa_chain = create_qa_chain(vector_store, memory)
-        result = qa_chain({"question": request.question})
-        
-        return ChatResponse(
-            answer=result['answer'],
-            conversation_id=request.conversation_id,
-            sources=[doc.metadata.get('source', '') for doc in result.get('source_documents', [])]
+            raise HTTPException(status_code=500, detail="Error retrieving document index.")
+
+        # Initialize conversation memory
+        memory = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True,
+            output_key='answer'
         )
+
+        # Populate memory with chat history
+        if chat_request.chat_history:
+            for message in chat_request.chat_history:
+                if message["type"] == "human":
+                    memory.chat_memory.add_message(HumanMessage(content=message["content"]))
+                elif message["type"] == "ai":
+                    memory.chat_memory.add_message(AIMessage(content=message["content"]))
+
+        # Create enhanced QA chain
+        qa_chain = create_enhanced_qa_chain(
+            vector_store, 
+            memory,
+           
+        )
+
+        # Get response with confidence scoring
+        with get_openai_callback() as cb:
+            result = qa_chain({"question": chat_request.prompt})
+            
+        response = result.get('answer', '').strip()
+        source_docs = result.get('source_documents', [])
+
+        if not response:
+            return ChatResponse(
+                response="I don't have enough information to answer this question.",
+                confidence_score=0.0
+            )
+
+        # Calculate confidence score
+        confidence_score = calculate_confidence_score(
+            query=chat_request.prompt,
+            response=response,
+            source_docs=source_docs,
+            llm=qa_chain.llm
+        )
+
+        # Get relevant chunks for transparency
+        relevant_chunks = [doc.page_content for doc in source_docs[:3]]
+
+        # Log query metrics
+        await log_query_metrics(
+            document_key=chat_request.document_key,
+            prompt=chat_request.prompt,
+            tokens_used=cb.total_tokens,
+            confidence_score=confidence_score,
+            user_ip=user_ip
+        )
+
+        return ChatResponse(
+            response=response,
+            confidence_score=confidence_score,
+            relevant_chunks=relevant_chunks
+        )
+
+    except Exception as e:
+        logging.error(f"Error in chat endpoint: {str(e)}")
+        return ChatResponse(
+            response="",
+            error=f"An error occurred: {str(e)}"
+        )
+
+def create_enhanced_qa_chain(vector_store: FAISS, memory, temperature: float = 0.1, max_tokens: int = 2000):
+    """Create an enhanced QA chain with better retrieval and response generation"""
     
-    except Exception as e:
-        logger.error(f"Error in chat endpoint: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # Create base retriever
+    base_retriever = vector_store.as_retriever(
+        search_type="mmr",
+        search_kwargs={"k": 5, "fetch_k": 20}
+    )
 
-@app.delete("/api/chat/{conversation_id}")
-async def clear_chat_history(conversation_id: str):
-    try:
-        conversation_manager.clear_conversation(conversation_id)
-        return {"status": "success", "message": "Conversation cleared"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Background Processing
-async def process_documents_background(files: List[UploadFile], job_id: str):
-    try:
-        all_text = ""
-        all_docs = []
-        
-        for file in files:
-            content = await file.read()
-            text, docs = process_file(content, file.filename)
-            if text and docs:
-                all_text += text + "\n\n"
-                all_docs.extend(docs)
-        
-        text_chunks, metadata_chunks = [], []
-        for doc in all_docs:
-            chunks, meta_chunks = create_text_chunks(doc.page_content, doc.metadata)
-            text_chunks.extend(chunks)
-            metadata_chunks.extend(meta_chunks)
-        
-        vector_store = create_vector_store(text_chunks, metadata_chunks)
-        save_vector_store_to_mongodb(vector_store, {"job_id": job_id})
-        
-        # Update job status in MongoDB
-        update_job_status(job_id, "completed")
-        
-    except Exception as e:
-        logger.error(f"Error in background processing: {str(e)}")
-        update_job_status(job_id, "failed", str(e))
-
-def create_qa_chain(vector_store, memory):
-    prompt_template = """[Your existing prompt template]"""
+    # Add contextual compression
+    llm = Ollama(
+        model="llama3.1",
+        temperature=temperature,
+        max_tokens=max_tokens
+    )
     
+    compressor = LLMChainExtractor.from_llm(llm)
+    compression_retriever = ContextualCompressionRetriever(
+        base_retriever=base_retriever,
+        base_compressor=compressor
+    )
+
+    # Enhanced prompt template
+    prompt_template = """You are a knowledgeable AI assistant. Answer questions based on the provided context.
+
+    Context: {context}
+    Chat History: {chat_history}
+    Current Question: {question}
+
+    Instructions:
+    1. Answer directly and concisely using only the provided context
+    2. If the context doesn't contain enough information, say so
+    3. Maintain consistency with previous chat history
+    4. Use specific details from the context to support your answer
+    5. Avoid speculation beyond the provided information
+
+    Question: {question}
+    
+    Answer: Let me help you with that."""
+
     PROMPT = PromptTemplate(
         template=prompt_template,
         input_variables=["context", "question", "chat_history"]
     )
 
-    llm = Ollama(model="llama3.1", temperature=0.1)
-    
-    retriever = vector_store.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": 5, "fetch_k": 20}
-    )
-
-    return ConversationalRetrievalChain.from_llm(
+    # Create the chain with the enhanced components
+    qa_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
-        retriever=retriever,
+        retriever=compression_retriever,
         memory=memory,
         combine_docs_chain_kwargs={"prompt": PROMPT},
-        return_source_documents=True
+        return_source_documents=True,
+        verbose=True
+    )
+    
+    return qa_chain
+
+async def log_query_metrics(
+    document_key: str,
+    prompt: str,
+    tokens_used: int,
+    confidence_score: float,
+    user_ip: str
+):
+    """Log query metrics to database"""
+    metrics = {
+        "document_key": document_key,
+        "prompt": prompt,
+        "tokens_used": tokens_used,
+        "confidence_score": confidence_score,
+        "user_ip": user_ip,
+        "timestamp": datetime.utcnow()
+    }
+    await async_db.query_metrics.insert_one(metrics)
+
+def calculate_confidence_score(
+    query: str,
+    response: str,
+    source_docs: List,
+    llm: Any
+) -> float:
+    """Calculate a confidence score based on multiple factors"""
+    
+    if not source_docs:
+        return 0.0
+
+    # 1. Semantic similarity between query and response
+    query_embedding = llm.embed_query(query)
+    response_embedding = llm.embed_query(response)
+    semantic_similarity = 1 - cosine(query_embedding, response_embedding)
+
+    # 2. Source document relevance
+    doc_scores = []
+    for doc in source_docs:
+        doc_embedding = llm.embed_query(doc.page_content)
+        doc_scores.append(1 - cosine(query_embedding, doc_embedding))
+    avg_doc_relevance = np.mean(doc_scores)
+
+    # 3. Response consistency with sources
+    consistency_scores = []
+    for doc in source_docs:
+        doc_embedding = llm.embed_query(doc.page_content)
+        consistency_scores.append(1 - cosine(response_embedding, doc_embedding))
+    response_consistency = np.mean(consistency_scores)
+
+    # Combine scores with weights
+    final_score = (
+        0.3 * semantic_similarity +
+        0.3 * avg_doc_relevance +
+        0.4 * response_consistency
     )
 
-def update_job_status(job_id: str, status: str, error: str = None):
-    db = get_mongodb_connection()
-    db.processing_jobs.update_one(
-        {"job_id": job_id},
-        {
-            "$set": {
-                "status": status,
-                "updated_at": datetime.utcnow(),
-                "error": error
-            }
-        },
-        upsert=True
-    )
-
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    return round(float(final_score), 3)

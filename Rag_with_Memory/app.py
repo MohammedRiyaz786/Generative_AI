@@ -30,6 +30,8 @@ import easyocr
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 
 
+
+
 logging.basicConfig(filename='app_log.txt', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -162,43 +164,7 @@ def create_qa_chain():
     "I apologize, but I don't engage with that type of language. How else can I assist you today?"
 
     Question: {question}"""
-    # prompt_template = """You are a direct and efficient AI assistant.
 
-    # IF the user's message matches ANY of these patterns:
-    # - "Hi", "Hello", "Hey", "Hii", "Hola" (just greeting)
-    # - "My name is [any name]"
-    # - "I am [any name]"
-    # - "[any greeting] my name is [any name]"
-    # - "[any greeting] I am [any name]"
-    # THEN respond only with: "Hello! How can I help you today?"
-
-    # OTHERWISE:
-    # 1. Use only the provided information:
-    # - Context: {context}
-    # - Chat History: {chat_history}
-    # - Current Question: {question}
-
-    # 2. Your response must be:
-    # - Direct and to-the-point
-    # - Based only on given context and history
-    # - Without any explanations about your capabilities
-    # - Without mentioning sources or references
-    
-    # 3. If the answer cannot be found in context or history:
-    # Response should be only: "I don't have enough information to answer this question."
-
-    # 4. Never start responses with:
-    # - "Based on..."
-    # - "According to..."
-    # - "I understand..."
-    # - "Let me..."
-
-    # 5. Never end responses with:
-    # - "Is there anything else..."
-    # - "Let me know if..."
-    # - "Feel free to..."
-
-    # Question: {question}"""
 
     PROMPT = PromptTemplate(
         template=prompt_template,
