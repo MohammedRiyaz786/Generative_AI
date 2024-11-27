@@ -90,45 +90,6 @@ def extract_file_content(uploaded_file):
     
 # utility function for scoring and metrics
 
-def calculate_relevance_score(query: str, context: str) -> float:
-
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    query_embedding = embeddings.embed_query(query)
-    context_embedding = embeddings.embed_query(context)
-    
-    # Calculating cosine similarity
-    similarity = np.dot(query_embedding, context_embedding) / (
-        np.linalg.norm(query_embedding) * np.linalg.norm(context_embedding)
-    )
-    return float(similarity)
-    
-
-def calculate_confidence_score(
-    relevance_score: float,
-    response_length: int,
-    context_length: int
-) -> float:
-    """
-    Calculate confidence score based on multiple factors
-    """
-    # Normalize response and context lengths
-    length_ratio = min(response_length / max(context_length, 1), 1.0)
-    
-    # Weighted scoring
-    weights = {
-        'relevance': 0.6,
-        'length_ratio': 0.4
-    }
-    
-    confidence = (
-        weights['relevance'] * relevance_score +
-        weights['length_ratio'] * length_ratio
-    )
-    
-    return min(max(confidence, 0.0), 1.0)
-
-
-
 
 def get_text_chunks(text, metadata):
     text_splitter = RecursiveCharacterTextSplitter(
@@ -283,7 +244,7 @@ def handle_user_input(user_question: str):
                     try:
                         # Only use QA chain for actual questions, not conversational inputs
                         if not is_conversational_input(user_question):
-                            result = qa_chain({"question": user_question})
+                            result = qa_chain({"question": user_question,})
                             logging.debug("QA chain result: %s", result)
                             response = result.get('answer', '').strip()
                             if not response:
