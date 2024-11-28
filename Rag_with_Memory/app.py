@@ -91,6 +91,7 @@ def extract_file_content(uploaded_file):
 # utility function for scoring and metrics
 
 
+
 def get_text_chunks(text, metadata):
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
