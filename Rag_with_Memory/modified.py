@@ -331,17 +331,17 @@ def handle_user_input(user_question: str):
                             confidence_score
                         )
                         
-                        # Add scores to response for display
+                        
                         response_with_metrics = (
                             f"{response}\n\n"
-                            f"Relevance Score: {relevance_score:.2f}\n"
-                            f"Confidence Score: {confidence_score:.2f}"
+                            #f"Relevance Score: {relevance_score:.2f}\n"
+                            #f"Confidence Score: {confidence_score:.2f}"
                         )
                         response = response_with_metrics
                     else:
                         response = handle_conversation(user_question)
         
-        # Update conversation (keep existing code)
+        
         if 'conversation' not in st.session_state:
             st.session_state.conversation = []
         
@@ -378,10 +378,10 @@ def is_conversational_input(text: str) -> bool:
 
 def handle_conversation(text: str) -> str:
     """Handle conversational inputs that don't require document knowledge"""
-    # Get user's name from context if available
+    
     user_name = st.session_state.user_context.get('name', '')
     
-    # Handle different types of conversational inputs
+    #handlig diffrent type of conversation
     text_lower = text.lower().strip()
     
     if "how are you" in text_lower:
@@ -579,6 +579,7 @@ def main():
         # Chat interface
         user_question = st.chat_input("Ask a question about your documents")
         if user_question:
+            
             handle_user_input(user_question)
             
     except Exception as e:
