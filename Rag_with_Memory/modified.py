@@ -109,7 +109,7 @@ def calculate_confidence_score(
     query: str,
     context: str,
     answer: str,
-    relevance_weight: float = 0.4,
+    relevance_weight: float = 0.7,
     length_weight: float = 0.3,
     coherence_weight: float = 0.3
 ) -> float:
