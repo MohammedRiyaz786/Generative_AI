@@ -334,8 +334,8 @@ def handle_user_input(user_question: str):
                         
                         response_with_metrics = (
                             f"{response}\n\n"
-                            #f"Relevance Score: {relevance_score:.2f}\n"
-                            #f"Confidence Score: {confidence_score:.2f}"
+                            f"Relevance Score: {relevance_score:.2f}\n"
+                            f"Confidence Score: {confidence_score:.2f}"
                         )
                         response = response_with_metrics
                     else:
@@ -579,6 +579,7 @@ def main():
         # Chat interface
         user_question = st.chat_input("Ask a question about your documents")
         if user_question:
+
             
             handle_user_input(user_question)
             
