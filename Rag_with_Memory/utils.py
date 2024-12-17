@@ -185,6 +185,7 @@ def extract_formulas_from_image(gray_image):
     
 def is_encrypted(pdf_docs):
     pass
+
 def get_pdf_text(pdf_docs):
     """Extract text and tables from PDF documents."""
     text = ""
@@ -192,15 +193,12 @@ def get_pdf_text(pdf_docs):
     
     for pdf in pdf_docs:
         try:
-            # First try with pdfplumber
             try:
                 with pdfplumber.open(pdf) as pdf_reader:
                     for page_num, page in enumerate(pdf_reader.pages):
-                        # Extract text
                         page_text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
                         text += page_text + "\n"
                         
-                        # Extract tables
                         tables = page.extract_tables()
                         for table in tables:
                             table_text = "Table:\n"
@@ -220,13 +218,13 @@ def get_pdf_text(pdf_docs):
                         ))
             except Exception as plumber_error:
                 logging.warning(f"pdfplumber failed, trying PyPDF2: {str(plumber_error)}")
-                # If pdfplumber fails, try with PyPDF2
+                # Trying with pyPDF2 , if pdfplumber fails
                 pdf_reader = PdfReader(pdf)
                 
-                # Handle encrypted PDFs
+                
                 if pdf_reader.is_encrypted:
                     try:
-                        # Try decrypting with empty password first
+                        # decrypting with empty password first
                         pdf_reader.decrypt('')
                     except Exception as decrypt_error:
                         logging.error(f"Failed to decrypt PDF {pdf.name}: {str(decrypt_error)}")
