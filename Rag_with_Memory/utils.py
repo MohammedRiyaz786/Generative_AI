@@ -218,13 +218,13 @@ def get_pdf_text(pdf_docs):
                         ))
             except Exception as plumber_error:
                 logging.warning(f"pdfplumber failed, trying PyPDF2: {str(plumber_error)}")
-                # Trying with pyPDF2 , if pdfplumber fails
+                # If pdfplumber fails, try with PyPDF2
                 pdf_reader = PdfReader(pdf)
                 
-                
+                # Handle encrypted PDFs
                 if pdf_reader.is_encrypted:
                     try:
-                        # decrypting with empty password first
+                        # Try decrypting with empty password first
                         pdf_reader.decrypt('')
                     except Exception as decrypt_error:
                         logging.error(f"Failed to decrypt PDF {pdf.name}: {str(decrypt_error)}")
@@ -299,6 +299,29 @@ def get_non_table_pdf_text(pdf_docs):
     for pdf in pdf_docs:
         try:
             pdf_reader = PdfReader(pdf)
+            
+            # Handle encrypted PDFs
+            if pdf_reader.is_encrypted:
+                try:
+                    # Try common passwords
+                    passwords = ['', ' ', 'password']
+                    decrypted = False
+                    
+                    for password in passwords:
+                        try:
+                            if pdf_reader.decrypt(password):
+                                decrypted = True
+                                break
+                        except:
+                            continue
+                    
+                    if not decrypted:
+                        raise ValueError("Could not decrypt the PDF")
+                        
+                except Exception as decrypt_error:
+                    logging.error(f"Failed to decrypt PDF {pdf.name}: {str(decrypt_error)}")
+                    raise
+            
             for page_num, page in enumerate(pdf_reader.pages):
                 page_text = page.extract_text() or ""
                 
