@@ -16,6 +16,7 @@ import numpy as np
 import easyocr
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 import torch
+
 import logging
 
 # Initialize OCR components
@@ -181,7 +182,9 @@ def extract_formulas_from_image(gray_image):
     except Exception as e:
         logging.warning(f"Formula extraction failed: {str(e)}")
         return ""
-
+    
+def is_encrypted(pdf_docs):
+    pass
 def get_pdf_text(pdf_docs):
     """Extract text and tables from PDF documents."""
     text = ""
@@ -189,35 +192,106 @@ def get_pdf_text(pdf_docs):
     
     for pdf in pdf_docs:
         try:
-            with pdfplumber.open(pdf) as pdf_reader:
-                for page_num, page in enumerate(pdf_reader.pages):
-                    # Extract text
-                    page_text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
-                    text += page_text + "\n"
-                    
-                    # Extract tables
-                    tables = page.extract_tables()
-                    for table in tables:
-                        table_text = "Table:\n"
-                        for row in table:
-                            filtered_row = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()]
-                            if filtered_row:
-                                table_text += " | ".join(filtered_row) + "\n"
-                        text += table_text + "\n"
+            # First try with pdfplumber
+            try:
+                with pdfplumber.open(pdf) as pdf_reader:
+                    for page_num, page in enumerate(pdf_reader.pages):
+                        # Extract text
+                        page_text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
+                        text += page_text + "\n"
+                        
+                        # Extract tables
+                        tables = page.extract_tables()
+                        for table in tables:
+                            table_text = "Table:\n"
+                            for row in table:
+                                filtered_row = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()]
+                                if filtered_row:
+                                    table_text += " | ".join(filtered_row) + "\n"
+                            text += table_text + "\n"
+                            documents.append(Document(
+                                page_content=table_text,
+                                metadata={'source': 'table', 'page': page_num + 1, 'filename': pdf.name}
+                            ))
+                        
                         documents.append(Document(
-                            page_content=table_text,
-                            metadata={'source': 'table', 'page': page_num + 1, 'filename': pdf.name}
+                            page_content=page_text,
+                            metadata={'source': 'pdf_text', 'page': page_num + 1, 'filename': pdf.name}
                         ))
+            except Exception as plumber_error:
+                logging.warning(f"pdfplumber failed, trying PyPDF2: {str(plumber_error)}")
+                # If pdfplumber fails, try with PyPDF2
+                pdf_reader = PdfReader(pdf)
+                
+                # Handle encrypted PDFs
+                if pdf_reader.is_encrypted:
+                    try:
+                        # Try decrypting with empty password first
+                        pdf_reader.decrypt('')
+                    except Exception as decrypt_error:
+                        logging.error(f"Failed to decrypt PDF {pdf.name}: {str(decrypt_error)}")
+                        raise
+                
+                for page_num, page in enumerate(pdf_reader.pages):
+                    page_text = page.extract_text() or ""
+                    cleaned_text = ' '.join(page_text.split())
+                    cleaned_text = cleaned_text.replace('-\n', '')
                     
-                    documents.append(Document(
-                        page_content=page_text,
-                        metadata={'source': 'pdf_text', 'page': page_num + 1, 'filename': pdf.name}
-                    ))
+                    metadata = {
+                        'source': 'pdf_encrypted',
+                        'page': page_num + 1,
+                        'filename': pdf.name
+                    }
+                    
+                    # Split into chunks
+                    chunks = [cleaned_text[i:i+500] for i in range(0, len(cleaned_text), 400)]
+                    
+                    for chunk in chunks:
+                        text += chunk + "\n"
+                        documents.append(Document(page_content=chunk, metadata=metadata))
+                        
         except Exception as e:
             logging.error(f"Error processing PDF {pdf.name}: {str(e)}")
             raise
                     
     return text, documents
+
+# def get_pdf_text(pdf_docs):
+#     """Extract text and tables from PDF documents."""
+#     text = ""
+#     documents = []
+    
+#     for pdf in pdf_docs:
+#         try:
+#             with pdfplumber.open(pdf) as pdf_reader:
+#                 for page_num, page in enumerate(pdf_reader.pages):
+#                     # Extract text
+#                     page_text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
+#                     text += page_text + "\n"
+                    
+#                     # Extract tables
+#                     tables = page.extract_tables()
+#                     for table in tables:
+#                         table_text = "Table:\n"
+#                         for row in table:
+#                             filtered_row = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()]
+#                             if filtered_row:
+#                                 table_text += " | ".join(filtered_row) + "\n"
+#                         text += table_text + "\n"
+#                         documents.append(Document(
+#                             page_content=table_text,
+#                             metadata={'source': 'table', 'page': page_num + 1, 'filename': pdf.name}
+#                         ))
+                    
+#                     documents.append(Document(
+#                         page_content=page_text,
+#                         metadata={'source': 'pdf_text', 'page': page_num + 1, 'filename': pdf.name}
+#                     ))
+#         except Exception as e:
+#             logging.error(f"Error processing PDF {pdf.name}: {str(e)}")
+#             raise
+                    
+#     return text, documents
 
 def get_non_table_pdf_text(pdf_docs):
     """Extract non-tabular text from PDF documents."""
